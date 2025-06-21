@@ -93,4 +93,23 @@ defmodule VauxTest.Template do
     assert "<h1></h1>" = void_result
     assert "<h1 enabled=\"\"></h1>" = empty_result
   end
+
+  test "void elements" do
+    defmodule TestComponent do
+      use Vaux.Component
+
+      ~H"""
+        <img src=""></img>
+        <br>
+        <input type="number" value="42">
+        <br/>
+      """vaux
+    end
+
+    result = Vaux.render!(TestComponent, %{})
+
+    TestHelper.unload(TestComponent)
+
+    assert "<img src=\"\"/><br/><input type=\"number\" value=\"42\"/><br/>" = result
+  end
 end

@@ -193,6 +193,12 @@ defmodule Vaux.Component.Compiler do
   end
 
   defp push_node(state, %Node{tag: tag} = node) when tag in @void_elements do
+    # TODO: This error currently will never be raised, because htmlerl always self close void elements.
+    # This results in confusing behaviour when trying to put content inside void elements 
+    if node.content not in [nil, []] do
+      raise_error(node, "content in void elements is not allowed")
+    end
+
     temp_state =
       state
       |> State.new()
