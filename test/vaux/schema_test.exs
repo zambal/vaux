@@ -83,4 +83,26 @@ defmodule Vaux.SchemaTest do
 
     assert {:error, %Vaux.RuntimeError{error: :validation}} = result
   end
+
+  test "schema validation options" do
+    defmodule TestComponent do
+      use Vaux.Component
+
+      defattr :answer, {:const, 42}, required: true
+
+      ~H"""
+        <p>{@answer}</p>
+      """vaux
+    end
+
+    ok_result = Vaux.render!(TestComponent, %{"answer" => 42})
+    invalid_result1 = Vaux.render(TestComponent, %{})
+    invalid_result2 = Vaux.render(TestComponent, %{"answer" => "42"})
+
+    TestHelper.unload(TestComponent)
+
+    assert "<p>42</p>" = ok_result
+    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result1
+    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result2
+  end
 end

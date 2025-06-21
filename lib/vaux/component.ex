@@ -29,7 +29,7 @@ defmodule Vaux.Component do
       raise Vaux.CompileError, file: file, line: line, description: description
     end
 
-    Builder.put_attribute(mod, {field, true, []})
+    Builder.put_attribute(mod, {field, true, false})
   end
 
   defmacro defattr(field, type, opts \\ []) do
@@ -43,19 +43,22 @@ defmodule Vaux.Component do
     {type, _} = Code.eval_quoted(type, [], __CALLER__)
     {opts, _} = Code.eval_quoted(opts, [], __CALLER__)
 
-    case type do
-      atom when is_atom(atom) ->
-        :ok
+    case Vaux.Schema.to_schema_prop(type, opts) do
+      {:ok, prop_def, required} ->
+        Builder.put_attribute(mod, {field, prop_def, required})
 
-      {type, _} when type in [:enum, :const] ->
-        :ok
+      {:error, {:invalid_type, type}} ->
+        description = "invalid attribute type #{inspect(type)}"
+        raise Vaux.CompileError, file: file, line: line, description: description
 
-      _ ->
-        description = "invalid attribute type"
+      {:error, {:invalid_inner_type, {type, inner_type}}} ->
+        description = "invalid #{inspect(type)} inner attribute type #{inspect(inner_type)}"
+        raise Vaux.CompileError, file: file, line: line, description: description
+
+      {:error, {:invalid_opt, opt}} ->
+        description = "invalid attribute option #{inspect(opt)}"
         raise Vaux.CompileError, file: file, line: line, description: description
     end
-
-    Builder.put_attribute(mod, {field, type, opts})
   end
 
   defmacro defslot(key) do
