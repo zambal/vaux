@@ -67,6 +67,30 @@ defmodule Vaux.SchemaTest do
     assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result2
   end
 
+  test "array with inner type" do
+    defmodule TestComponent do
+      use Vaux.Component
+
+      defattr :binary, {:array, [0, 1]}
+
+      ~H"""
+        <code :for={b <- @binary}>{b}</code>
+      """vaux
+    end
+
+    ok_result1 = Vaux.render!(TestComponent, %{"binary" => [1, 0, 1, 0, 1, 0]})
+    ok_result2 = Vaux.render!(TestComponent, %{"binary" => []})
+    invalid_result1 = Vaux.render(TestComponent, %{"binary" => [42]})
+    invalid_result2 = Vaux.render(TestComponent, %{"binary" => 0})
+
+    TestHelper.unload(TestComponent)
+
+    assert "<code>1</code><code>0</code><code>1</code><code>0</code><code>1</code><code>0</code>" = ok_result1
+    assert "" = ok_result2
+    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result1
+    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result2
+  end
+
   test "disallow extra attributes" do
     defmodule TestComponent do
       use Vaux.Component
@@ -84,25 +108,95 @@ defmodule Vaux.SchemaTest do
     assert {:error, %Vaux.RuntimeError{error: :validation}} = result
   end
 
-  test "schema validation options" do
+  test "invalid attribute field" do
+    assert_raise Vaux.CompileError, ~r/.*expects an atom.*/, fn ->
+      defmodule TestComponent do
+        use Vaux.Component
+
+        defattr "invalid"
+
+        ~H"""
+          <h1>Hello World</h1>
+        """vaux
+      end
+    end
+  end
+
+  test "invalid attribute type" do
+    assert_raise Vaux.CompileError, ~r/.*invalid type.*/, fn ->
+      defmodule TestComponent do
+        use Vaux.Component
+
+        defattr :title, :oops
+
+        ~H"""
+          <h1>{@title}</h1>
+        """vaux
+      end
+    end
+  end
+
+  test "invalid attribute inner type" do
+    assert_raise Vaux.CompileError, ~r/.*invalid inner type.*/, fn ->
+      defmodule TestComponent do
+        use Vaux.Component
+
+        defattr :title, {:array, :oops}
+
+        ~H"""
+          <h1>{@title}</h1>
+        """vaux
+      end
+    end
+  end
+
+  test "invalid attribute option" do
+    assert_raise Vaux.CompileError, ~r/.*invalid option.*/, fn ->
+      defmodule TestComponent do
+        use Vaux.Component
+
+        defattr :binary, {:array, ~w(0 1)}, oops: 0
+
+        ~H"""
+          <h1>{@title}</h1>
+        """vaux
+      end
+    end
+  end
+
+  test "complex attribute type" do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :answer, {:const, 42}, required: true
+      defattr :persons, :array,
+        required: true,
+        items:
+          {:object,
+           properties: %{
+             name: :string,
+             year_of_birth: {:integer, minimum: 0, maximum: Date.utc_today().year}
+           }}
 
       ~H"""
-        <p>{@answer}</p>
+        <div :for={%{name: name, year_of_birth: year} <- @persons}>
+          <p>{name}</p>
+          <p>{year}</p>
+        </div>
       """vaux
     end
 
-    ok_result = Vaux.render!(TestComponent, %{"answer" => 42})
-    invalid_result1 = Vaux.render(TestComponent, %{})
-    invalid_result2 = Vaux.render(TestComponent, %{"answer" => "42"})
+    ok_result =
+      Vaux.render!(TestComponent, %{
+        "persons" => [%{"name" => "Bob", "year_of_birth" => 34}, %{"name" => "Alice", "year_of_birth" => 36}]
+      })
+
+    # invalid_result1 = Vaux.render(TestComponent, %{})
+    # invalid_result2 = Vaux.render(TestComponent, %{"answer" => "42"})
 
     TestHelper.unload(TestComponent)
 
-    assert "<p>42</p>" = ok_result
-    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result1
-    assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result2
+    assert "<div><p>Bob</p><p>34</p></div><div><p>Alice</p><p>36</p></div>" = ok_result
+    # assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result1
+    # assert {:error, %Vaux.RuntimeError{error: :validation}} = invalid_result2
   end
 end

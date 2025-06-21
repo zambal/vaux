@@ -14,6 +14,7 @@ defmodule Vaux.Schema do
   )a
 
   @schema_opts ~w(
+    properties
     items
     contains
     maxLength
@@ -92,9 +93,84 @@ defmodule Vaux.Schema do
     {:ok, Enum.into(opts, prop_type)}
   end
 
+  defp handle_prop_type(:array, opts) do
+    prop_def = Enum.into(opts, %{type: :array})
+
+    case prop_def[:items] do
+      nil ->
+        {:ok, prop_def}
+
+      type when type in @schema_atom_types ->
+        handle_array_type(prop_def, type, [])
+
+      {type, items_opts} when type in @schema_atom_types ->
+        handle_array_type(prop_def, type, items_opts)
+
+      invalid ->
+        {:error, {:invalid_items_type, invalid}}
+    end
+  end
+
+  defp handle_prop_type(:object, opts) do
+    prop_def = Enum.into(opts, %{type: :object})
+
+    result =
+      case prop_def[:properties] do
+        nil ->
+          {:ok, prop_def}
+
+        props when is_map(props) ->
+          handle_object_props(props)
+
+        invalid ->
+          {:error, {:invalid_props_type, invalid}}
+      end
+
+    case result do
+      {:ok, props, []} ->
+        {:ok, Map.put(prop_def, :properties, props)}
+
+      {:ok, props, required} ->
+        {:ok, Map.put(prop_def, :properties, props) |> Map.put(:required, required)}
+
+      {:error, e} ->
+        {:error, e}
+    end
+  end
+
   defp handle_prop_type(type, opts) do
     prop_type = %{type: type}
     {:ok, Enum.into(opts, prop_type)}
+  end
+
+  defp handle_array_type(array_def, type, opts) do
+    case to_schema_prop(type, opts) do
+      {:ok, prop_def, _req} -> {:ok, Map.put(array_def, :items, prop_def)}
+      {:error, e} -> {:error, e}
+    end
+  end
+
+  defp handle_object_props(props) do
+    Enum.reduce(props, {:ok, %{}, []}, fn
+      {field, type}, {:ok, acc, reqs} when type in @schema_atom_types ->
+        handle_object_field_type(acc, field, type, [], reqs)
+
+      {field, {type, opts}}, {:ok, acc, reqs} when type in @schema_atom_types ->
+        handle_object_field_type(acc, field, type, opts, reqs)
+
+      {field, invalid}, {:ok, _, _} ->
+        {:error, {:invalid_props_type, {field, invalid}}}
+
+      _, {:error, e} ->
+        {:error, e}
+    end)
+  end
+
+  defp handle_object_field_type(field_def, field, type, opts, reqs) do
+    case to_schema_prop(type, opts) do
+      {:ok, prop_def, req} -> {:ok, Map.put(field_def, field, prop_def), handle_required(reqs, field, req)}
+      {:error, e} -> {:error, e}
+    end
   end
 
   defp validate_schema_type(type) when type in @schema_atom_types, do: :ok
@@ -124,6 +200,7 @@ defmodule Vaux.Schema do
 
       [name] ->
         option_to_atom(name)
+        |> validate_option()
 
       [first | rest] ->
         Enum.join([first | Enum.map(rest, &String.capitalize/1)])

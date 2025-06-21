@@ -48,15 +48,16 @@ defmodule Vaux.Component do
         Builder.put_attribute(mod, {field, prop_def, required})
 
       {:error, {:invalid_type, type}} ->
-        description = "invalid attribute type #{inspect(type)}"
+        description = "#{inspect(field)} attribute has an invalid type: #{inspect(type)}"
         raise Vaux.CompileError, file: file, line: line, description: description
 
-      {:error, {:invalid_inner_type, {type, inner_type}}} ->
-        description = "invalid #{inspect(type)} inner attribute type #{inspect(inner_type)}"
+      {:error, {:invalid_inner_type, {_type, inner_type}}} ->
+        description = "#{inspect(field)} attribute has an invalid inner type: #{inspect(inner_type)}"
+
         raise Vaux.CompileError, file: file, line: line, description: description
 
       {:error, {:invalid_opt, opt}} ->
-        description = "invalid attribute option #{inspect(opt)}"
+        description = "#{inspect(field)} attribute has an invalid option: #{inspect(opt)}"
         raise Vaux.CompileError, file: file, line: line, description: description
     end
   end

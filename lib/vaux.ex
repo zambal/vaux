@@ -64,7 +64,7 @@ defmodule Vaux do
     if function_exported?(component, :__vaux__, 1) do
       case JSV.validate(attrs, component.__vaux__(:schema)) do
         {:ok, attrs} ->
-          attrs = for {k, v} <- attrs, into: %{}, do: {String.to_existing_atom(k), v}
+          attrs = atomize(attrs)
           {:ok, Map.merge(component.__vaux__(:defaults), attrs)}
 
         {:error, e} ->
@@ -82,4 +82,14 @@ defmodule Vaux do
       end
     end
   end
+
+  defp atomize(map) when is_map(map) do
+    for {k, v} <- map, into: %{}, do: {String.to_existing_atom(k), atomize(v)}
+  end
+
+  defp atomize(list) when is_list(list) do
+    for item <- list, do: atomize(item)
+  end
+
+  defp atomize(other), do: other
 end
