@@ -4,7 +4,7 @@ defmodule Vaux.MixProject do
   def project do
     [
       app: :vaux,
-      version: "0.3.0",
+      version: "0.3.1",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: [{:jsv, "~> 0.7"}]
