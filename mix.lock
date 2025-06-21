@@ -1,0 +1,4 @@
+%{
+  "jsv": {:hex, :jsv, "0.7.2", "0a90129346a709bdc32f5a7f933a5e7a531fffe211e9a4a90d93151214d0eaaa", [:mix], [{:abnf_parsec, "~> 2.0", [hex: :abnf_parsec, repo: "hexpm", optional: true]}, {:decimal, "~> 2.0", [hex: :decimal, repo: "hexpm", optional: true]}, {:jason, "~> 1.0", [hex: :jason, repo: "hexpm", optional: true]}, {:nimble_options, "~> 1.0", [hex: :nimble_options, repo: "hexpm", optional: false]}, {:poison, "~> 5.0 or ~> 6.0", [hex: :poison, repo: "hexpm", optional: true]}], "hexpm", "37d899704fc7d4fd7499a0421d20448d8c4eca00ee0319940a8991cd92749c27"},
+  "nimble_options": {:hex, :nimble_options, "1.1.1", "e3a492d54d85fc3fd7c5baf411d9d2852922f66e69476317787a7b2bb000a61b", [:mix], [], "hexpm", "821b2470ca9442c4b6984882fe9bb0389371b8ddec4d45a9504f00a66f650b44"},
+}
