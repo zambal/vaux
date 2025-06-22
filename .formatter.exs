@@ -1,5 +1,5 @@
 # Used by "mix format"
-export_locals_without_parens = [defattr: 1, defattr: 2, defattr: 3, defslot: 1, defstate: 1]
+export_locals_without_parens = [attr: 1, attr: 2, attr: 3, slot: 1, defstate: 1]
 
 [
   line_length: 120,

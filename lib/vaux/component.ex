@@ -21,22 +21,22 @@ defmodule Vaux.Component do
     end
   end
 
-  defmacro defattr(field) do
+  defmacro attr(field) do
     %{module: mod, file: file, line: line} = __CALLER__
 
     if not is_atom(field) do
-      description = "defattr expects an atom as attribute name"
+      description = "attr expects an atom as attribute name"
       raise Vaux.CompileError, file: file, line: line, description: description
     end
 
     Builder.put_attribute(mod, {field, true, false})
   end
 
-  defmacro defattr(field, type, opts \\ []) do
+  defmacro attr(field, type, opts \\ []) do
     %{module: mod, file: file, line: line} = __CALLER__
 
     if not is_atom(field) do
-      description = "defattr expects an atom as attribute name"
+      description = "attr expects an atom as attribute name"
       raise Vaux.CompileError, file: file, line: line, description: description
     end
 
@@ -62,7 +62,7 @@ defmodule Vaux.Component do
     end
   end
 
-  defmacro defslot(key) do
+  defmacro slot(key) do
     Builder.put_slot(__CALLER__.module, :"__#{key}")
   end
 

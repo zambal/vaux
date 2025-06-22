@@ -14,7 +14,7 @@ defmodule VauxTest.Template do
     end
   end
 
-  test "no defattr" do
+  test "no attr" do
     defmodule TestComponent do
       import Vaux.Component
 
@@ -35,7 +35,7 @@ defmodule VauxTest.Template do
       import Vaux.Component
       @behaviour Vaux.Component
 
-      defattr :title, :string
+      attr :title, :string
 
       ~H"""
         <h1>{@title}</h1>
@@ -53,7 +53,7 @@ defmodule VauxTest.Template do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title, :string
+      attr :title, :string
 
       ~H"""
         <h1>{@title}</h1>
@@ -71,8 +71,8 @@ defmodule VauxTest.Template do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title
-      defattr :conditional
+      attr :title
+      attr :conditional
 
       ~H"""
         <h1 enabled={@conditional}>{@title}</h1>

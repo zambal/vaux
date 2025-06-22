@@ -100,10 +100,10 @@ defmodule Vaux.Schema do
       nil ->
         {:ok, prop_def}
 
-      type when type in @schema_atom_types ->
+      type when is_map(type) or type in @schema_atom_types ->
         handle_array_type(prop_def, type, [])
 
-      {type, items_opts} when type in @schema_atom_types ->
+      {type, items_opts} when is_map(type) or type in @schema_atom_types ->
         handle_array_type(prop_def, type, items_opts)
 
       invalid ->
@@ -136,6 +136,10 @@ defmodule Vaux.Schema do
       {:error, e} ->
         {:error, e}
     end
+  end
+
+  defp handle_prop_type(object_def, opts) when is_map(object_def) do
+    handle_prop_type(:object, [{:properties, object_def} | opts])
   end
 
   defp handle_prop_type(type, opts) do
@@ -173,7 +177,7 @@ defmodule Vaux.Schema do
     end
   end
 
-  defp validate_schema_type(type) when type in @schema_atom_types, do: :ok
+  defp validate_schema_type(type) when is_map(type) or type in @schema_atom_types, do: :ok
   defp validate_schema_type({:array, _}), do: :ok
   defp validate_schema_type({:object, _}), do: :ok
   defp validate_schema_type({:enum, _}), do: :ok

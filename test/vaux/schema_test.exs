@@ -6,8 +6,8 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title, :string
-      defattr :optional
+      attr :title, :string
+      attr :optional
 
       ~H"""
         <h1 class={@optional}>{@title}</h1>
@@ -27,7 +27,7 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :fruit, {:enum, ~w(apple banana orange)}
+      attr :fruit, {:enum, ~w(apple banana orange)}
 
       ~H"""
         <p>{@fruit}</p>
@@ -49,7 +49,7 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :answer, {:const, 42}, required: true
+      attr :answer, {:const, 42}, required: true
 
       ~H"""
         <p>{@answer}</p>
@@ -71,7 +71,7 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :binary, {:array, [0, 1]}
+      attr :binary, {:array, [0, 1]}
 
       ~H"""
         <code :for={b <- @binary}>{b}</code>
@@ -95,7 +95,7 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title, :string
+      attr :title, :string
 
       ~H"""
         <h1>{@title}</h1>
@@ -113,7 +113,7 @@ defmodule Vaux.SchemaTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr "invalid"
+        attr "invalid"
 
         ~H"""
           <h1>Hello World</h1>
@@ -127,7 +127,7 @@ defmodule Vaux.SchemaTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :title, :oops
+        attr :title, :oops
 
         ~H"""
           <h1>{@title}</h1>
@@ -141,7 +141,7 @@ defmodule Vaux.SchemaTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :title, {:array, :oops}
+        attr :title, {:array, :oops}
 
         ~H"""
           <h1>{@title}</h1>
@@ -155,7 +155,7 @@ defmodule Vaux.SchemaTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :binary, {:array, ~w(0 1)}, oops: 0
+        attr :binary, {:array, ~w(0 1)}, oops: 0
 
         ~H"""
           <h1>{@title}</h1>
@@ -168,14 +168,12 @@ defmodule Vaux.SchemaTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :persons, :array,
+      attr :persons, :array,
         required: true,
-        items:
-          {:object,
-           properties: %{
-             name: :string,
-             year_of_birth: {:integer, minimum: 0, maximum: Date.utc_today().year}
-           }}
+        items: %{
+          name: :string,
+          year_of_birth: {:integer, minimum: 0, maximum: Date.utc_today().year}
+        }
 
       ~H"""
         <div :for={%{name: name, year_of_birth: year} <- @persons}>

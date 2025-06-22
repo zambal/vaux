@@ -6,8 +6,8 @@ defmodule Vaux.CompositionTest do
     defmodule OtherComponent do
       use Vaux.Component
 
-      defattr :title, :string, required: true
-      defattr :sub_title, :string
+      attr :title, :string, required: true
+      attr :sub_title, :string
 
       ~H"""
       <body>
@@ -26,9 +26,9 @@ defmodule Vaux.CompositionTest do
       use Vaux.Component
       require OtherComponent
 
-      defattr :title, :string
-      defattr :sub_title, :string
-      defattr :footer, :integer
+      attr :title, :string
+      attr :sub_title, :string
+      attr :footer, :integer
 
       ~H"""
         <html>
@@ -50,8 +50,8 @@ defmodule Vaux.CompositionTest do
     defmodule OtherComponent4 do
       use Vaux.Component
 
-      defslot :header
-      defslot :footer
+      slot :header
+      slot :footer
 
       ~H"""
       <body>
@@ -97,8 +97,8 @@ defmodule Vaux.CompositionTest do
       defmodule OtherComponent2 do
         use Vaux.Component
 
-        defattr :title, :string, required: true
-        defattr :sub_title, :string
+        attr :title, :string, required: true
+        attr :sub_title, :string
 
         ~H"""
         <header>
@@ -112,8 +112,8 @@ defmodule Vaux.CompositionTest do
         use Vaux.Component
         require OtherComponent2
 
-        defattr :title
-        defattr :sub_title
+        attr :title
+        attr :sub_title
 
         ~H"""
           <OtherComponent2 title={@title} sub_title2={@sub_title}/>
@@ -127,8 +127,8 @@ defmodule Vaux.CompositionTest do
       defmodule OtherComponent3 do
         use Vaux.Component
 
-        defattr :title, :string, required: true
-        defattr :sub_title, :string
+        attr :title, :string, required: true
+        attr :sub_title, :string
 
         ~H"""
         <header>
@@ -142,7 +142,7 @@ defmodule Vaux.CompositionTest do
         use Vaux.Component
         require OtherComponent3
 
-        defattr :sub_title
+        attr :sub_title
 
         ~H"""
           <OtherComponent3 sub_title={@sub_title}/>
@@ -156,7 +156,7 @@ defmodule Vaux.CompositionTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :title
+        attr :title
 
         ~H"""
           <OtherComponent5 title={@title}/>

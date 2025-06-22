@@ -6,7 +6,7 @@ defmodule Vaux.StateTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title, :string
+      attr :title, :string
 
       defstate [:my_title]
 
@@ -30,7 +30,7 @@ defmodule Vaux.StateTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :title, :string
+      attr :title, :string
 
       defstate [:my_title]
 

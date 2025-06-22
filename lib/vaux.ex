@@ -35,7 +35,7 @@ defmodule Vaux do
         end
 
       {:error, {:__vaux__, :noschema}} ->
-        description = "no `defattr` declarations in component #{inspect(component)}"
+        description = "no `attr` declarations in component #{inspect(component)}"
         raise Vaux.RuntimeError, file: file, line: line, error: :noschema, description: description
 
       {:error, {:__vaux__, :nofile}} ->

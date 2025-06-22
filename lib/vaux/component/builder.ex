@@ -34,13 +34,13 @@ defmodule Vaux.Component.Builder do
           raise Vaux.CompileError,
             file: env.file,
             line: env.line,
-            description: "defattr parse schema error: #{inspect(msg)}"
+            description: "attr parse schema error: #{inspect(msg)}"
 
         {:error, %JSV.BuildError{reason: reason}} ->
           raise Vaux.CompileError,
             file: env.file,
             line: env.line,
-            description: "defattr json schema error: #{inspect(reason)}"
+            description: "attr json schema error: #{inspect(reason)}"
       end
 
     {state_fields, required} = Vaux.Schema.to_struct_def(attrs_schema, state)

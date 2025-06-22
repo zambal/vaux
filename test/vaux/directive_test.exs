@@ -6,8 +6,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :greet, :boolean
-      defattr :title, :string
+      attr :greet, :boolean
+      attr :title, :string
 
       ~H"""
         <div>
@@ -33,8 +33,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :greet, :boolean
-      defattr :title, :string
+      attr :greet, :boolean
+      attr :title, :string
 
       ~H"""
         <div>
@@ -62,8 +62,8 @@ defmodule Vaux.DirectiveTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :greet, :boolean
-        defattr :title, :string
+        attr :greet, :boolean
+        attr :title, :string
 
         ~H"""
           <div>
@@ -82,8 +82,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :greet, :boolean
-      defattr :title, :string
+      attr :greet, :boolean
+      attr :title, :string
 
       ~H"""
         <div>
@@ -109,8 +109,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :count, :integer
-      defattr :title, :string
+      attr :count, :integer
+      attr :title, :string
 
       ~H"""
         <div>
@@ -138,8 +138,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :count, :integer
-      defattr :title, :string
+      attr :count, :integer
+      attr :title, :string
 
       ~H"""
         <div>
@@ -169,8 +169,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :count, :integer
-      defattr :title, :string
+      attr :count, :integer
+      attr :title, :string
 
       ~H"""
         <div>
@@ -201,8 +201,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :count, :integer
-      defattr :title, :string
+      attr :count, :integer
+      attr :title, :string
 
       ~H"""
         <div>
@@ -234,7 +234,7 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :point
+      attr :point
 
       ~H"""
         <div :case={@point}>
@@ -266,7 +266,7 @@ defmodule Vaux.DirectiveTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :point
+        attr :point
 
         ~H"""
           <div :case={@point}>
@@ -288,7 +288,7 @@ defmodule Vaux.DirectiveTest do
       defmodule TestComponent do
         use Vaux.Component
 
-        defattr :point
+        attr :point
 
         ~H"""
           <div>
@@ -308,8 +308,8 @@ defmodule Vaux.DirectiveTest do
     defmodule TestComponent do
       use Vaux.Component
 
-      defattr :count, :integer
-      defattr :title, :string
+      attr :count, :integer
+      attr :title, :string
 
       ~H"""
         <h1 :for={n <- 1..@count}>{"#{@title} - #{n}"}</h1>
