@@ -94,7 +94,7 @@ defmodule Vaux.Component.Compiler do
 
     ast =
       quote do
-        fn unquote(arg) -> unquote(maybe_to_binary(expr.ast)) end
+        fn unquote(arg) -> unquote(maybe_to_binary(:lists.reverse(expr.ast))) end
       end
 
     %{state | stack: [%{expr | ast: ast} | rest]}

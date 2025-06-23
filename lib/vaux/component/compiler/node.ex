@@ -60,15 +60,16 @@ defmodule Vaux.Component.Compiler.Node do
     put_directive(node, dir, expr_string)
   end
 
-  defp add_attribute(%Node{tag: "v-template", type: :slot} = node, {_, _, "#" <> key, ""}) do
+  defp add_attribute(%Node{tag: "v-template", type: :slot} = node, {_, _, "#" <> key, _}) do
     %{node | attrs: [String.to_existing_atom(key)]}
   end
 
-  defp add_attribute(%Node{tag: "v-slot", type: :slot} = node, {_, _, "#" <> key, ""}) do
+  defp add_attribute(%Node{tag: "v-slot", type: :slot} = node, {_, _, "#" <> key, _}) do
     %{node | attrs: [String.to_existing_atom(key)]}
   end
 
-  defp add_attribute(%Node{type: :slot} = node, _attr) do
+  defp add_attribute(%Node{type: :slot} = node, attr) do
+    IO.inspect({node.tag, attr})
     node
   end
 
