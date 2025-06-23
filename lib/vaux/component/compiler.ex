@@ -102,7 +102,7 @@ defmodule Vaux.Component.Compiler do
 
   defp compile_slot_node(state, node, _) do
     state = %State{stack: [%Expr{} = expr | rest]} = compile_node(state, node)
-    expr = %{expr | ast: maybe_to_binary(expr.ast)}
+    expr = %{expr | ast: maybe_to_binary(:lists.reverse(expr.ast))}
     %{state | stack: [expr | rest]}
   end
 

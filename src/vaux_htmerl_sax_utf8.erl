@@ -1824,7 +1824,7 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
         #start_tag{name = <<"html">>} ->
             State1 = dispatch(State#{insertion_mode := in_body}, Token),
             State1#{insertion_mode := before_head};
-        #start_tag{name = <<"head">>} ->
+        #start_tag{name = Name} when Name == <<"head">>; Name == <<"v-slot">> ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
             State2#{insertion_mode := in_head};
@@ -1870,6 +1870,8 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
                  Name == <<"basefont">>;
                  Name == <<"bgsound">>;
                  Name == <<"link">>;
+                 Name == <<"v-slot">>;
+                 Name == <<"v-template">>;
                  Name == <<"meta">> ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
@@ -2298,14 +2300,16 @@ dispatch(#{insertion_mode := in_body} = State, Token) ->
             when N == <<"caption">>;
                  N == <<"col">>;
                  N == <<"colgroup">>;
-                 N == <<"frame">>;
-                 N == <<"head">>;
                  N == <<"tbody">>;
                  N == <<"td">>;
                  N == <<"tfoot">>;
                  N == <<"th">>;
                  N == <<"thead">>;
                  N == <<"tr">> ->
+            dispatch(State#{insertion_mode := in_table}, Token);
+        #start_tag{name = N}
+            when N == <<"frame">>;
+                 N == <<"head">> ->
             State;
         #start_tag{} ->
             State1 = maybe_pop_text(State),

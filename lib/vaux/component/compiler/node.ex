@@ -69,7 +69,6 @@ defmodule Vaux.Component.Compiler.Node do
   end
 
   defp add_attribute(%Node{type: :slot} = node, attr) do
-    IO.inspect({node.tag, attr})
     node
   end
 
