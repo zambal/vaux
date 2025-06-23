@@ -321,16 +321,6 @@ tag_name(Stream, #{current_token := Curr} = State) ->
 
 tag_name_1(Stream, Pos) ->
     case Stream of
-        <<_:Pos/binary, C1, C2, C3, _/binary>>
-            when ?lower_ascii_letter(C1), ?lower_ascii_letter(C2), ?lower_ascii_letter(C3) ->
-            tag_name_1(Stream, Pos + 3);
-        <<_:Pos/binary, C1, C2, _/binary>>
-            when ?lower_ascii_letter(C1), ?lower_ascii_letter(C2) ->
-            tag_name_1(Stream, Pos + 2);
-        <<_:Pos/binary, C, _/binary>> when ?lower_ascii_letter(C) ->
-            tag_name_1(Stream, Pos + 1);
-        <<_:Pos/binary, C, _/binary>> when ?upper_ascii_letter(C) ->
-            tag_name_2(Stream, Pos + 1);
         <<_:Pos/binary, C, _/binary>> when ?ws(C); C == $/; C == $>; C == 0 ->
             <<Part:Pos/binary, Rest/binary>> = Stream,
             {Part, Rest};
@@ -338,17 +328,6 @@ tag_name_1(Stream, Pos) ->
             tag_name_1(Stream, Pos + 1);
         <<Part:Pos/binary>> ->
             {Part, <<>>}
-    end.
-
-tag_name_2(Stream, Pos) ->
-    case Stream of
-        <<_:Pos/binary, C, _/binary>> when ?ws(C); C == $/; C == $>; C == 0 ->
-            <<Part:Pos/binary, Rest/binary>> = Stream,
-            {string:lowercase(Part), Rest};
-        <<_:Pos/binary, _/binary>> ->
-            tag_name_1(Stream, Pos + 1);
-        <<Part:Pos/binary>> ->
-            {string:lowercase(Part), <<>>}
     end.
 
 %% 8.2.4.9
