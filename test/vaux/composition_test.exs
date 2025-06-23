@@ -80,7 +80,6 @@ defmodule Vaux.CompositionTest do
 
       attr :title, :string
       attr :sub_title, :string
-      attr :footer, :integer
 
       ~H"""
         <html>
@@ -94,7 +93,7 @@ defmodule Vaux.CompositionTest do
     expected =
       "<html><body><header><h1>Hello World</h1><h3>and beyond</h3></header><footer>HELLO WORLD</footer></body></html>"
 
-    result = Vaux.render!(TestComponent, %{"title" => "Hello World", "sub_title" => "and beyond", "footer" => 42})
+    result = Vaux.render!(TestComponent, %{"title" => "Hello World", "sub_title" => "and beyond"})
     TestHelper.unload(TestComponent)
 
     assert expected == result
