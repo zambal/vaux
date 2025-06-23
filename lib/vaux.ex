@@ -19,9 +19,9 @@ defmodule Vaux do
   @doc false
   @spec render!(module(), attributes(), map(), Path.t(), non_neg_integer()) :: iodata()
   def render!(component, attrs, slot_content, file, line) do
-    case validate_attrs(component, attrs) do
-      {:ok, attrs} ->
-        case component.init(attrs, slot_content) do
+    case validate_attrs(component, attrs, slot_content) do
+      {:ok, state} ->
+        case component.handle_state(state) do
           {:ok, state} when is_struct(state, component) ->
             component.render(state)
 
@@ -60,12 +60,12 @@ defmodule Vaux do
   defp normalize_slots(slots) when is_map(slots), do: slots
   defp normalize_slots(slot), do: %{default: slot}
 
-  defp validate_attrs(component, attrs) do
+  defp validate_attrs(component, attrs, slot_content) do
     if function_exported?(component, :__vaux__, 1) do
       case JSV.validate(attrs, component.__vaux__(:schema)) do
         {:ok, attrs} ->
           attrs = atomize(attrs)
-          {:ok, Map.merge(component.__vaux__(:defaults), attrs)}
+          {:ok, struct(component, Map.merge(attrs, slot_content))}
 
         {:error, e} ->
           {:error, e}
@@ -74,7 +74,7 @@ defmodule Vaux do
       case Code.ensure_loaded(component) do
         {:module, _} ->
           if function_exported?(component, :__vaux__, 1),
-            do: validate_attrs(component, attrs),
+            do: validate_attrs(component, attrs, slot_content),
             else: {:error, {:__vaux__, :noschema}}
 
         {:error, :nofile} ->

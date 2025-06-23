@@ -39,16 +39,16 @@ defmodule Vaux.Schema do
   @spec to_jsv_schema(attrs_schema()) :: {:ok, JSV.Root.t()} | {:error, term()}
   def to_jsv_schema(attrs_schema) do
     {props, required} =
-      Enum.reduce(attrs_schema, {%{}, []}, fn {field, prop_def, req}, {props, reqs} ->
-        {Map.put(props, field, prop_def), handle_required(reqs, field, req)}
+      Enum.reduce(attrs_schema, {%{}, []}, fn {name, prop_def, req}, {props, reqs} ->
+        {Map.put(props, name, prop_def), handle_required(reqs, name, req)}
       end)
 
     schema = %{type: :object, properties: props, required: required, additionalProperties: false}
     JSV.build(schema)
   end
 
-  defp handle_required(acc, field, true), do: [field | acc]
-  defp handle_required(acc, _field, false), do: acc
+  defp handle_required(acc, name, true), do: [name | acc]
+  defp handle_required(acc, _name, false), do: acc
 
   @spec to_schema_prop(atom() | tuple(), keyword()) :: {:ok, map(), boolean()} | {:error, {atom(), term()}}
   def to_schema_prop(type, opts) do
@@ -156,23 +156,23 @@ defmodule Vaux.Schema do
 
   defp handle_object_props(props) do
     Enum.reduce(props, {:ok, %{}, []}, fn
-      {field, type}, {:ok, acc, reqs} when type in @schema_atom_types ->
-        handle_object_field_type(acc, field, type, [], reqs)
+      {name, type}, {:ok, acc, reqs} when type in @schema_atom_types ->
+        handle_object_name_type(acc, name, type, [], reqs)
 
-      {field, {type, opts}}, {:ok, acc, reqs} when type in @schema_atom_types ->
-        handle_object_field_type(acc, field, type, opts, reqs)
+      {name, {type, opts}}, {:ok, acc, reqs} when type in @schema_atom_types ->
+        handle_object_name_type(acc, name, type, opts, reqs)
 
-      {field, invalid}, {:ok, _, _} ->
-        {:error, {:invalid_props_type, {field, invalid}}}
+      {name, invalid}, {:ok, _, _} ->
+        {:error, {:invalid_props_type, {name, invalid}}}
 
       _, {:error, e} ->
         {:error, e}
     end)
   end
 
-  defp handle_object_field_type(field_def, field, type, opts, reqs) do
+  defp handle_object_name_type(name_def, name, type, opts, reqs) do
     case to_schema_prop(type, opts) do
-      {:ok, prop_def, req} -> {:ok, Map.put(field_def, field, prop_def), handle_required(reqs, field, req)}
+      {:ok, prop_def, req} -> {:ok, Map.put(name_def, name, prop_def), handle_required(reqs, name, req)}
       {:error, e} -> {:error, e}
     end
   end
@@ -226,32 +226,30 @@ defmodule Vaux.Schema do
 
   @spec get_defaults(attrs_schema()) :: %{String.t() => term()}
   def get_defaults(attrs_schema) do
-    for {field, prop_def, _} <- attrs_schema, into: %{} do
-      {field, get_default(prop_def)}
+    for {name, prop_def, _} <- attrs_schema, into: %{} do
+      {name, get_default(prop_def)}
     end
   end
 
-  @spec to_struct_def(attrs_schema(), [{atom(), any()}] | nil) :: {list(), list()}
-  def to_struct_def(attrs_schema, nil) do
-    Enum.reduce(attrs_schema, {[], []}, fn {field, prop_def, req}, {fields, reqs} ->
-      default = get_default(prop_def)
-      {[{field, default} | fields], handle_required(reqs, field, req)}
-    end)
-  end
+  def to_struct_def(attrs_schema, vars, slots) do
+    fields = Enum.reduce(slots, [{:__slot__, nil}], &[{&1, nil} | &2])
+    fields = Enum.reduce(vars, fields, fn {name, var, _line}, acc -> [{name, var} | acc] end)
 
-  def to_struct_def(_attrs_schema, state) do
-    {state, []}
+    Enum.reduce(attrs_schema, {fields, []}, fn {name, prop_def, req}, {names, reqs} ->
+      default = get_default(prop_def)
+      {[{name, default} | names], handle_required(reqs, name, req)}
+    end)
   end
 
   defp get_default(%{default: d}), do: d
   defp get_default(_), do: nil
 
   @spec check_assigns([atom()], [{atom(), term()}]) :: [atom()]
-  def check_assigns(assigns, fields) do
-    fields = Enum.map(fields, fn {n, _d} -> n end)
+  def check_assigns(assigns, names) do
+    names = Enum.map(names, fn {n, _d} -> n end)
 
-    Enum.reduce(assigns, fields, fn name, fields ->
-      List.delete(fields, name)
+    Enum.reduce(assigns, names, fn name, names ->
+      List.delete(names, name)
     end)
   end
 end

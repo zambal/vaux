@@ -88,6 +88,24 @@ defmodule Vaux.Component.Compiler do
     state |> push_node(node) |> flush_expr()
   end
 
+  defp compile_slot_node(state, %Node{line: line} = node, {:":let", expr_string}) do
+    state = %State{stack: [%Expr{} = expr | rest]} = compile_node(state, node)
+    {arg, state} = to_unsafe_quoted(expr_string, state.env.file, line, state)
+
+    ast =
+      quote do
+        fn unquote(arg) -> unquote(maybe_to_binary(expr.ast)) end
+      end
+
+    %{state | stack: [%{expr | ast: ast} | rest]}
+  end
+
+  defp compile_slot_node(state, node, _) do
+    state = %State{stack: [%Expr{} = expr | rest]} = compile_node(state, node)
+    expr = %{expr | ast: maybe_to_binary(expr.ast)}
+    %{state | stack: [expr | rest]}
+  end
+
   defp setup_directive(%Node{dir: {:":case", string}} = node) do
     content = inject_case(node.content, string)
     %{node | dir: nil, content: content}
@@ -109,24 +127,42 @@ defmodule Vaux.Component.Compiler do
     |> State.push_stack(expr)
   end
 
-  defp push_node(state, %Node{tag: "v-slot", type: :slot} = node) do
+  defp push_node(state, %Node{tag: "v-slot", type: :slot, binding: binding} = node) do
     slot_key =
       case node.attrs do
-        [] -> :__default
+        [] -> :__slot__
         [key] -> key
       end
 
+    state = State.add_assign(state, slot_key)
+
     fallback_content = compile_content(State.new(state), node.content)
 
-    slot =
-      quote line: node.line do
-        case Map.get(var!(state), unquote(slot_key)) do
-          empty when empty in ["", nil, false] ->
-            unquote(maybe_to_binary(fallback_content.acc))
+    {slot, state} =
+      case binding do
+        {:":bind", expr_string} ->
+          {expr, state} = to_unsafe_quoted(expr_string, state.env.file, node.line, state)
 
-          content ->
-            content
-        end
+          {quote line: node.line do
+             case Map.get(var!(state), unquote(slot_key)) do
+               empty when empty in ["", nil, false] ->
+                 unquote(maybe_to_binary(fallback_content.acc))
+
+               content ->
+                 content.(unquote(expr))
+             end
+           end, state}
+
+        _ ->
+          {quote line: node.line do
+             case Map.get(var!(state), unquote(slot_key)) do
+               empty when empty in ["", nil, false] ->
+                 unquote(maybe_to_binary(fallback_content.acc))
+
+               content ->
+                 content
+             end
+           end, state}
       end
 
     expr = Expr.new(slot, "v-slot", node.dir, slot_key, node.line)
@@ -136,27 +172,27 @@ defmodule Vaux.Component.Compiler do
     |> State.push_stack(expr)
   end
 
-  defp push_node(state, %Node{type: :component} = node) do
+  defp push_node(state, %Node{type: :component, binding: binding, line: line} = node) do
     {slot_content, state} =
       case find_named_slots(node.content) do
         {[], content} ->
-          default_slot = compile_content(State.new(state), content)
+          default_slot = compile_slot_content(State.new(state), content, binding, line)
           state = State.merge_assigns_used(state, default_slot)
-          {[default: default_slot.acc], state}
+          {[__slot__: default_slot.acc], state}
 
         {slots, content} ->
-          default_slot = compile_content(State.new(state), content)
+          default_slot = compile_slot_content(State.new(state), content, binding, line)
           state = State.merge_assigns_used(state, default_slot)
 
           slot_exprs =
-            for node <- slots, reduce: State.new(state) do
-              state -> compile_node(state, node)
+            for %Node{binding: binding} = node <- slots, reduce: State.new(state) do
+              state -> compile_slot_node(state, node, binding)
             end
 
           state = State.merge_assigns_used(state, slot_exprs)
           slots = Enum.map(slot_exprs.stack, &{&1.slot_key, &1.ast})
 
-          {[{:default, default_slot.acc} | slots], state}
+          {[{:__slot__, default_slot.acc} | slots], state}
       end
 
     {attrs, state} = quote_attributes(node.attrs, node.line, state)
@@ -352,6 +388,23 @@ defmodule Vaux.Component.Compiler do
     state
   end
 
+  defp compile_slot_content(state, content, {:":let", expr_string}, line) do
+    state = %State{acc: acc} = compile_content(state, content)
+    {expr, state} = to_unsafe_quoted(expr_string, state.env.file, line, state)
+
+    acc =
+      quote do
+        fn unquote(expr) -> unquote(maybe_to_binary(acc)) end
+      end
+
+    %{state | acc: acc}
+  end
+
+  defp compile_slot_content(state, content, _, _) do
+    state = %State{acc: acc} = compile_content(state, content)
+    %{state | acc: maybe_to_binary(acc)}
+  end
+
   defp compile_attributes(state, [{name, value} | rest], %Node{env: {file, _}, line: line} = node) do
     state |> compile_attribute(name, value, file, line) |> compile_attributes(rest, node)
   end
@@ -475,8 +528,6 @@ defmodule Vaux.Component.Compiler do
   end
 
   defp call(tag, attrs, slots, line, state) do
-    slots = maybe_kv_to_binary(slots)
-
     case module_from_tag(tag, state.env) do
       nil ->
         description = "component #{tag} is not available"
@@ -558,7 +609,16 @@ defmodule Vaux.Component.Compiler do
     |> Macro.prewalk(state, &handle_assigns/2)
   end
 
-  defp handle_assigns({:@, meta, [{field, _, atom}]}, state) when is_atom(field) and is_atom(atom) do
+  defp handle_assigns({:@, meta, [{:!, _, [{root_fun, _, _}]}]}, state) do
+    ast =
+      quote line: meta[:line] || 0 do
+        @__vaux_root__.unquote(root_fun)
+      end
+
+    {ast, state}
+  end
+
+  defp handle_assigns({:@, meta, [{field, _, atom}]}, state) when field != :__vaux_root__ and is_atom(atom) do
     ast =
       quote line: meta[:line] || 0 do
         var!(state).unquote(field)

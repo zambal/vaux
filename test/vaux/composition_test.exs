@@ -1,10 +1,11 @@
 defmodule Vaux.CompositionTest do
   use ExUnit.Case, async: true
+  alias Vaux.CompositionTest.TestComponent
   alias Vaux.TestHelper
 
   test "call another component" do
     defmodule OtherComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string, required: true
       attr :sub_title, :string
@@ -23,8 +24,11 @@ defmodule Vaux.CompositionTest do
     end
 
     defmodule TestComponent do
-      use Vaux.Component
-      require OtherComponent
+      import Vaux.Component
+
+      components [
+        OtherComponent
+      ]
 
       attr :title, :string
       attr :sub_title, :string
@@ -48,7 +52,7 @@ defmodule Vaux.CompositionTest do
 
   test "named slots" do
     defmodule OtherComponent4 do
-      use Vaux.Component
+      import Vaux.Component
 
       slot :header
       slot :footer
@@ -66,7 +70,7 @@ defmodule Vaux.CompositionTest do
     end
 
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
       require OtherComponent4
 
       ~H"""
@@ -95,7 +99,7 @@ defmodule Vaux.CompositionTest do
   test "invalid attribute call" do
     assert_raise Vaux.CompileError, ~r/.invalid.*/, fn ->
       defmodule OtherComponent2 do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :title, :string, required: true
         attr :sub_title, :string
@@ -109,7 +113,7 @@ defmodule Vaux.CompositionTest do
       end
 
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
         require OtherComponent2
 
         attr :title
@@ -125,7 +129,7 @@ defmodule Vaux.CompositionTest do
   test "template missing attribute call" do
     assert_raise Vaux.CompileError, ~r/.required.*/, fn ->
       defmodule OtherComponent3 do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :title, :string, required: true
         attr :sub_title, :string
@@ -139,7 +143,7 @@ defmodule Vaux.CompositionTest do
       end
 
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
         require OtherComponent3
 
         attr :sub_title
@@ -154,7 +158,7 @@ defmodule Vaux.CompositionTest do
   test "missing template call" do
     assert_raise Vaux.CompileError, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :title
 

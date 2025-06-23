@@ -51,7 +51,7 @@ defmodule VauxTest.Template do
 
   test "hello world using use" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string
 
@@ -69,7 +69,7 @@ defmodule VauxTest.Template do
 
   test "conditional attribute" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title
       attr :conditional
@@ -96,7 +96,7 @@ defmodule VauxTest.Template do
 
   test "void elements" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       ~H"""
         <img src=""></img>

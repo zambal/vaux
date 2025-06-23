@@ -1,23 +1,24 @@
 defmodule Vaux.Component do
+  require Vaux.Component.Builder
   alias Vaux.Component.Builder
 
-  @callback init(attrs :: %{atom() => any()}, slots :: %{atom() => any()}) :: {:ok, state} | {:error, reason}
+  @callback handle_state(state :: struct()) :: {:ok, state} | {:error, reason}
             when state: struct(), reason: any()
 
   @callback render(state :: struct()) :: iodata()
 
-  defmacro __using__(opts) do
-    requires =
-      opts
-      |> Keyword.get(:require, [])
-      |> List.wrap()
-      |> Builder.handle_requires()
+  defmacro components(comps) when is_list(comps) or is_atom(comps) do
+    Vaux.Component.Builder.put_components(__CALLER__.module, comps)
+  end
 
-    quote do
-      import Vaux.Component
-      @behaviour Vaux.Component
+  defmacro slot(name) do
+    %{module: mod, file: file, line: line} = __CALLER__
 
-      unquote(requires)
+    Builder.put_slot(mod, name)
+
+    if not is_atom(name) do
+      description = "attr expects an atom as attribute name"
+      raise Vaux.CompileError, file: file, line: line, description: description
     end
   end
 
@@ -62,18 +63,16 @@ defmodule Vaux.Component do
     end
   end
 
-  defmacro slot(key) do
-    Builder.put_slot(__CALLER__.module, :"__#{key}")
+  defmacro var([{name, value}]) do
+    %{module: mod, line: line} = __CALLER__
+
+    Vaux.Component.Builder.put_var(mod, {name, value, line})
   end
 
-  defmacro defstate(fields) do
-    fields =
-      Enum.map(fields, fn
-        {field, def} -> {field, def}
-        field -> {field, nil}
-      end)
+  defmacro var(name) when is_atom(name) do
+    %{module: mod, line: line} = __CALLER__
 
-    Builder.put_state(__CALLER__.module, fields)
+    Vaux.Component.Builder.put_var(mod, {name, nil, line})
   end
 
   defmacro sigil_H({:<<>>, _meta, [string]}, mods) do
@@ -91,33 +90,6 @@ defmodule Vaux.Component do
     end
 
     Builder.put_template(mod, {string, __CALLER__})
-
-    quote do
-      @before_compile {Vaux.Component.Builder, :defcomponent}
-    end
-  end
-
-  defmacro state(state) do
-    mod = __CALLER__.module
-
-    quote line: __CALLER__.line do
-      struct(unquote(mod), unquote(state))
-    end
-  end
-
-  defmacro state(state, slot_content) do
-    mod = __CALLER__.module
-
-    quote line: __CALLER__.line do
-      slot_content =
-        for {k, v} <- unquote(slot_content), into: %{} do
-          case k do
-            :default -> {:__default, v}
-            slot_key -> {:"__#{slot_key}", v}
-          end
-        end
-
-      struct(unquote(mod), Map.merge(unquote(state), slot_content))
-    end
+    Builder.defcomponent(__CALLER__)
   end
 end

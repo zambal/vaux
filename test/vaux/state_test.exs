@@ -2,44 +2,43 @@ defmodule Vaux.StateTest do
   use ExUnit.Case, async: true
   alias Vaux.TestHelper
 
-  test "custom state" do
+  test "custom handler" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string
 
-      defstate [:my_title]
-
-      def init(%{title: title}, _slot) do
-        {:ok, state(%{my_title: title})}
-      end
+      var my_var: 42
 
       ~H"""
-        <h1>{@my_title}</h1>
+        <h1>{"#{@title} - #{@my_var}"}</h1>
       """vaux
+
+      def handle_state(%{title: title} = state) do
+        {:ok, %{state | title: String.upcase(title)}}
+      end
     end
 
     result = Vaux.render!(TestComponent, %{"title" => "Hello World"})
 
     TestHelper.unload(TestComponent)
 
-    assert "<h1>Hello World</h1>" = result
+    assert "<h1>HELLO WORLD - 42</h1>" = result
   end
 
   test "invalid state" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string
+      var :my_var
 
-      defstate [:my_title]
-
-      def init(%{title: title}, _slot) do
+      def handle_state(%{title: title}) do
         {:ok, %{my_title: title}}
       end
 
       ~H"""
-        <h1>{@my_title}</h1>
+        <h1>{"#{@title} - #{@my_var}"}</h1>
       """vaux
     end
 

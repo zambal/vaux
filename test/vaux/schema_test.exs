@@ -4,7 +4,7 @@ defmodule Vaux.SchemaTest do
 
   test "optional attribute of any type" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string
       attr :optional
@@ -25,7 +25,7 @@ defmodule Vaux.SchemaTest do
 
   test "enum attribute" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :fruit, {:enum, ~w(apple banana orange)}
 
@@ -47,7 +47,7 @@ defmodule Vaux.SchemaTest do
 
   test "const attribute" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :answer, {:const, 42}, required: true
 
@@ -69,7 +69,7 @@ defmodule Vaux.SchemaTest do
 
   test "array with inner type" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :binary, {:array, [0, 1]}
 
@@ -93,7 +93,7 @@ defmodule Vaux.SchemaTest do
 
   test "disallow extra attributes" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :title, :string
 
@@ -111,7 +111,7 @@ defmodule Vaux.SchemaTest do
   test "invalid attribute field" do
     assert_raise Vaux.CompileError, ~r/.*expects an atom.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr "invalid"
 
@@ -125,7 +125,7 @@ defmodule Vaux.SchemaTest do
   test "invalid attribute type" do
     assert_raise Vaux.CompileError, ~r/.*invalid type.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :title, :oops
 
@@ -139,7 +139,7 @@ defmodule Vaux.SchemaTest do
   test "invalid attribute inner type" do
     assert_raise Vaux.CompileError, ~r/.*invalid inner type.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :title, {:array, :oops}
 
@@ -153,7 +153,7 @@ defmodule Vaux.SchemaTest do
   test "invalid attribute option" do
     assert_raise Vaux.CompileError, ~r/.*invalid option.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :binary, {:array, ~w(0 1)}, oops: 0
 
@@ -166,7 +166,7 @@ defmodule Vaux.SchemaTest do
 
   test "complex attribute type" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :persons, :array,
         required: true,

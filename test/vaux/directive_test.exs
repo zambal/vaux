@@ -4,7 +4,7 @@ defmodule Vaux.DirectiveTest do
 
   test ":if directive" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :greet, :boolean
       attr :title, :string
@@ -31,7 +31,7 @@ defmodule Vaux.DirectiveTest do
 
   test ":if :else directives" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :greet, :boolean
       attr :title, :string
@@ -60,7 +60,7 @@ defmodule Vaux.DirectiveTest do
   test "invalid :if :else directives" do
     assert_raise Vaux.CompileError, ~r/.*:else.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :greet, :boolean
         attr :title, :string
@@ -80,7 +80,7 @@ defmodule Vaux.DirectiveTest do
 
   test "single :cond directive" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :greet, :boolean
       attr :title, :string
@@ -107,7 +107,7 @@ defmodule Vaux.DirectiveTest do
 
   test "multiple :cond directives" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :count, :integer
       attr :title, :string
@@ -136,7 +136,7 @@ defmodule Vaux.DirectiveTest do
 
   test "multiple :cond directives enclosed" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :count, :integer
       attr :title, :string
@@ -167,7 +167,7 @@ defmodule Vaux.DirectiveTest do
 
   test "mixed :cond directives" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :count, :integer
       attr :title, :string
@@ -199,7 +199,7 @@ defmodule Vaux.DirectiveTest do
 
   test "mixed :cond :else directives" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :count, :integer
       attr :title, :string
@@ -232,7 +232,7 @@ defmodule Vaux.DirectiveTest do
 
   test ":case :clause directives" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :point
 
@@ -264,7 +264,7 @@ defmodule Vaux.DirectiveTest do
   test "invalid :case :clause directives" do
     assert_raise Vaux.CompileError, ~r/.*:clause.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :point
 
@@ -286,7 +286,7 @@ defmodule Vaux.DirectiveTest do
   test "missing :case directive" do
     assert_raise Vaux.CompileError, ~r/.*:case.*/, fn ->
       defmodule TestComponent do
-        use Vaux.Component
+        import Vaux.Component
 
         attr :point
 
@@ -306,7 +306,7 @@ defmodule Vaux.DirectiveTest do
 
   test ":for directive" do
     defmodule TestComponent do
-      use Vaux.Component
+      import Vaux.Component
 
       attr :count, :integer
       attr :title, :string
