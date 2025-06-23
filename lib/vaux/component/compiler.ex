@@ -4,12 +4,23 @@ defmodule Vaux.Component.Compiler do
   @dialyzer {:no_improper_lists, [html_escape: 4, html_escape: 5]}
   @dialyzer {:no_return, raise_error: 2, raise_error: 3}
   @dialyzer {:no_match, concat: 2}
-  @compile {:inline, raise_error: 2, raise_error: 3, to_binary: 1, maybe_to_binary: 1, maybe_kv_to_binary: 1}
+  @compile {:inline, raise_error: 2, raise_error: 3, to_binary: 1}
 
   @type result :: Macro.t() | [binary() | result()]
 
-  @render_to_binary Application.compile_env(:vaux, :render_to_binary, false)
   @void_elements ~w(area base br col embed hr img input link meta source track wbr)
+
+  defmacrop maybe_to_binary(expr) do
+    if Application.get_env(:vaux, :render_to_binary, true) do
+      quote do
+        to_binary(unquote(expr))
+      end
+    else
+      quote do
+        unquote(expr)
+      end
+    end
+  end
 
   @spec compile(String.t(), Macro.Env.t()) :: {result(), [atom()]}
   def compile(string, env \\ %Macro.Env{}) do
@@ -32,17 +43,6 @@ defmodule Vaux.Component.Compiler do
           line: env.line,
           description: "unexpected stack leftover after compile:\n\n#{inspect(stack)}\n"
     end
-  end
-
-  if @render_to_binary do
-    def maybe_to_binary(x), do: to_binary(x)
-
-    def maybe_kv_to_binary(kv) do
-      for {key, ast} <- kv, do: {key, to_binary(ast)}
-    end
-  else
-    def maybe_to_binary(x), do: x
-    def maybe_kv_to_binary(x), do: x
   end
 
   @doc false

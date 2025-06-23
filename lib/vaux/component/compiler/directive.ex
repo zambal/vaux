@@ -1,30 +1,40 @@
 defmodule Vaux.Component.Compiler.Directive do
-  alias Vaux.Component.Compiler
+  defmacrop maybe_to_binary(expr) do
+    if Application.get_env(:vaux, :render_to_binary, true) do
+      quote do
+        Vaux.Component.Compiler.to_binary(unquote(expr))
+      end
+    else
+      quote do
+        unquote(expr)
+      end
+    end
+  end
 
   def for(generator, expr, line) do
     quote line: line do
-      for unquote(generator), into: "", do: unquote(Compiler.maybe_to_binary(expr))
+      for unquote(generator), into: "", do: unquote(maybe_to_binary(expr))
     end
   end
 
   def if_else_fallback(test, expr, line) do
     quote line: line do
-      if unquote(test), do: unquote(Compiler.maybe_to_binary(expr)), else: ""
+      if unquote(test), do: unquote(maybe_to_binary(expr)), else: ""
     end
   end
 
   def if_else(test, if_expr, else_expr, line) do
     quote line: line do
       if unquote(test),
-        do: unquote(Compiler.maybe_to_binary(if_expr)),
-        else: unquote(Compiler.maybe_to_binary(else_expr))
+        do: unquote(maybe_to_binary(if_expr)),
+        else: unquote(maybe_to_binary(else_expr))
     end
   end
 
   def cond_clause(test, expr, line) do
     hd(
       quote line: line do
-        (unquote(test) -> unquote(Compiler.maybe_to_binary(expr)))
+        (unquote(test) -> unquote(maybe_to_binary(expr)))
       end
     )
   end
@@ -46,7 +56,7 @@ defmodule Vaux.Component.Compiler.Directive do
   def case_clause(pattern, expr, line) do
     hd(
       quote line: line do
-        (unquote(pattern) -> unquote(Compiler.maybe_to_binary(expr)))
+        (unquote(pattern) -> unquote(maybe_to_binary(expr)))
       end
     )
   end
