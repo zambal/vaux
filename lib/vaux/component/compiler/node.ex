@@ -61,14 +61,14 @@ defmodule Vaux.Component.Compiler.Node do
   end
 
   defp add_attribute(%Node{tag: "v-template", type: :slot} = node, {_, _, "#" <> key, _}) do
-    %{node | attrs: [String.to_existing_atom(key)]}
+    %{node | attrs: [try_to_existing_atom(key, node, "no slot :#{key} defined")]}
   end
 
   defp add_attribute(%Node{tag: "v-slot", type: :slot} = node, {_, _, "#" <> key, _}) do
-    %{node | attrs: [String.to_existing_atom(key)]}
+    %{node | attrs: [try_to_existing_atom(key, node, "no slot :#{key} defined")]}
   end
 
-  defp add_attribute(%Node{type: :slot} = node, attr) do
+  defp add_attribute(%Node{type: :slot} = node, _attr) do
     node
   end
 
@@ -78,12 +78,13 @@ defmodule Vaux.Component.Compiler.Node do
 
   defp put_directive(%Node{} = node, binding, expr_string) when binding in ~w(:bind :let) do
     expr_string = normalize_directive(expr_string, binding, node)
-    %{node | binding: {String.to_existing_atom(binding), expr_string}}
+    binding = {try_to_existing_atom(binding, node, "unexpected error parsing #{inspect(binding)}"), expr_string}
+    %{node | binding: binding}
   end
 
   defp put_directive(%Node{dir: nil} = node, dir, expr_string) do
     expr_string = normalize_directive(expr_string, dir, node)
-    %{node | dir: {String.to_existing_atom(dir), expr_string}}
+    %{node | dir: {try_to_existing_atom(dir, node, "invalid directive #{dir}"), expr_string}}
   end
 
   defp put_directive(node, _op, _expr_string) do
@@ -116,6 +117,14 @@ defmodule Vaux.Component.Compiler.Node do
     if String.match?(tag, ~r/^[[:upper:]].*$/u),
       do: :component,
       else: :element
+  end
+
+  defp try_to_existing_atom(string, node, error_text) do
+    try do
+      String.to_existing_atom(string)
+    rescue
+      ArgumentError -> raise_error(node, error_text)
+    end
   end
 
   defp raise_error(%Node{env: {file, _}, line: line}, description) do
