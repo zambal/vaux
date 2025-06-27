@@ -265,4 +265,193 @@ defmodule Vaux.CompositionTest do
       end
     end
   end
+
+  test "complex composition with root module" do
+    defmodule Complex.Layout do
+      import Vaux.Component
+
+      attr :lang, :string
+      slot :pre_head
+      slot :head
+      slot :main
+      slot :footer
+      slot :footer2
+
+      ~H"""
+        <html lang={@lang}>
+          <head>
+            <v-slot #pre_head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width" />
+            </v-slot>
+            <v-slot #head></v-slot>
+          </head>
+          <body>
+            <main><v-slot #main></v-slot></main>
+            <footer>
+              <v-slot #footer ></v-slot>
+              <v-slot #footer2 :bind={"FOOTER2"} ></v-slot>
+            </footer>
+          </body>
+        </html>
+      """vaux
+    end
+
+    defmodule Complex.Person do
+      import Vaux.Component
+
+      var person: %{
+            name: "Jan Jansen",
+            birth_date: ~D[1977-07-07],
+            birth_place: "Amsterdam",
+            country: "Netherlands"
+          }
+
+      ~H"""
+       <table>
+         <caption>
+           Persons
+         </caption>
+         <thead>
+           <tr>
+             <th scope="col">Name</th>
+             <th scope="col">Birth Date</th>
+             <th scope="col">Birth Place</th>
+             <th scope="col">Country</th>
+           </tr>
+         </thead>
+         <tbody>
+           <tr >
+              <v-slot :bind={@person}></v-slot>
+           </tr>
+         </tbody>
+       </table>
+      """vaux
+    end
+
+    defmodule Complex.Root do
+      import Vaux.Root
+
+      components Vaux.CompositionTest.Complex.{Layout, Person}
+
+      const title: "Hello World"
+    end
+
+    defmodule Complex.Page do
+      use Vaux.CompositionTest.Complex.Root
+
+      attr :number, :number
+
+      ~H"""
+      <Layout lang="en">
+        <v-template #head>
+          <title>{@!title}</title>
+        </v-template>
+
+        <v-template #main>
+          <Person :let={user}>
+           <th>{user.name}</th>
+           <th>{user.birth_date}</th>
+           <th>{user.birth_place}</th>
+           <th>{user.country}</th>
+          </Person>
+          <Person>
+           <th>{1}</th>
+           <th>{2}</th>
+           <th>{3}</th>
+           <th>{4}</th>
+          </Person>
+        </v-template>
+
+        <v-template #footer>
+          <p>{"It's always #{@number}"}</p>
+          <p>{"It's always #{@number}"}</p>
+          <p>{"It's always #{@number}"}</p>
+          <p>{"It's always #{@number}"}</p>
+        </v-template>
+        <v-template #footer2 :let={f}>
+          <p>{"#{f}-1"}</p>
+          <p>{"#{f}-2"}</p>
+          <p>{"#{f}-3"}</p>
+          <p>{"#{f}-4"}</p>
+        </v-template>
+      </Layout>
+      """vaux
+    end
+
+    expected =
+      """
+      <html lang="en">
+        <head>
+            <meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width"/>
+            <title>Hello World</title>
+        </head>
+        <body>
+          <main>
+            <table>
+             <caption>
+               Persons
+             </caption>
+             <thead>
+               <tr>
+                 <th scope="col">Name</th>
+                 <th scope="col">Birth Date</th>
+                 <th scope="col">Birth Place</th>
+                 <th scope="col">Country</th>
+               </tr>
+             </thead>
+             <tbody>
+               <tr>
+                 <th>Jan Jansen</th>
+                 <th>1977-07-07</th>
+                 <th>Amsterdam</th>
+                 <th>Netherlands</th>
+               </tr>
+             </tbody>
+            </table>
+            <table>
+             <caption>
+               Persons
+             </caption>
+             <thead>
+               <tr>
+                 <th scope="col">Name</th>
+                 <th scope="col">Birth Date</th>
+                 <th scope="col">Birth Place</th>
+                 <th scope="col">Country</th>
+               </tr>
+             </thead>
+             <tbody>
+               <tr>
+                 <th>1</th>
+                 <th>2</th>
+                 <th>3</th>
+                 <th>4</th>
+               </tr>
+             </tbody>
+            </table>
+          </main>
+          <footer>
+            <p>It&#39;s always 42</p>
+            <p>It&#39;s always 42</p>
+            <p>It&#39;s always 42</p>
+            <p>It&#39;s always 42</p>
+            <p>FOOTER2-1</p>
+            <p>FOOTER2-2</p>
+            <p>FOOTER2-3</p>
+            <p>FOOTER2-4</p>
+          </footer>
+        </body>
+      </html>
+      """
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.join()
+
+    result = Vaux.render!(Complex.Page, %{"number" => 42})
+    TestHelper.unload(Complex.Page)
+
+    assert expected == result
+  end
 end
