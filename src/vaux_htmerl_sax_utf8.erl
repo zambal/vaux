@@ -11,9 +11,9 @@
 
 %% Token types
 -record(doctype, {name = <<>>, public = undefined, system = undefined, quirks = false}).
--record(start_tag, {name = <<>>, closing = false, attributes = []}).
+-record(start_tag, {name = <<>>, template = false, closing = false, attributes = []}).
 -record(attribute, {name = <<>>, value = <<>>}).
--record(end_tag, {name = <<>>}).
+-record(end_tag, {name = <<>>, template = false}).
 -record(comment, {data = <<>>}).
 -record(char, {data = <<>>}).
 -record(chars, {data = <<>>}).
@@ -1782,6 +1782,10 @@ dispatch(#{insertion_mode := before_html, fragment_mode := FMode} = State, Token
             State;
         #expr{data = Expr} ->
             send_event({expr, Expr}, State);
+        #start_tag{template = true} ->
+            State1 = maybe_pop_text(State),
+            State2 = dispatch(State1#{insertion_mode := in_head}, Token),
+            State2#{insertion_mode := before_html};
         #start_tag{name = <<"html">>} ->
             Ns = {startPrefixMapping, <<>>, ?HTML},
             State1 = send_event(Ns, State),
@@ -1789,6 +1793,10 @@ dispatch(#{insertion_mode := before_html, fragment_mode := FMode} = State, Token
             State2#{insertion_mode := before_head};
         #start_tag{} when FMode == true ->
             dispatch(State#{insertion_mode := before_head}, Token);
+        #end_tag{template = true} ->
+            State1 = maybe_pop_text(State),
+            State2 = dispatch(State1#{insertion_mode := in_head}, Token),
+            State2#{insertion_mode := before_html};
         #end_tag{name = Name}
             when Name == <<"head">>; Name == <<"body">>; Name == <<"html">>; Name == <<"br">> ->
             Ns = {startPrefixMapping, <<>>, ?HTML},
@@ -1821,10 +1829,14 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
             State;
         #expr{data = Expr} ->
             send_event({expr, Expr}, State);
+        #start_tag{template = true} ->
+            State1 = maybe_pop_text(State),
+            State2 = dispatch(State1#{insertion_mode := in_head}, Token),
+            State2#{insertion_mode := before_head};
         #start_tag{name = <<"html">>} ->
             State1 = dispatch(State#{insertion_mode := in_body}, Token),
             State1#{insertion_mode := before_head};
-        #start_tag{name = Name} when Name == <<"head">>; Name == <<"v-slot">> ->
+        #start_tag{name = <<"head">>} ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
             State2#{insertion_mode := in_head};
@@ -1832,10 +1844,12 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
             dispatch(State#{insertion_mode := after_head}, Token);
         #end_tag{name = Name}
             when Name == <<"head">>; Name == <<"body">>; Name == <<"html">>; Name == <<"br">> ->
-            Token1 = #start_tag{name = <<"head">>},
             State1 = maybe_pop_text(State),
-            State2 = add_html_element(Token1, State1),
-            dispatch(State2#{insertion_mode := in_head}, Token);
+            dispatch(State1#{insertion_mode := in_head}, Token);
+        #end_tag{template = true} ->
+            State1 = maybe_pop_text(State),
+            State2 = dispatch(State1#{insertion_mode := in_head}, Token),
+            State2#{insertion_mode := before_head};
         #end_tag{} ->
             % parse error
             State;
@@ -1843,10 +1857,8 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
             % Stop parsing
             finish_document(pop_all(State));
         _ ->
-            Token1 = #start_tag{name = <<"head">>},
             State1 = maybe_pop_text(State),
-            State2 = add_html_element(Token1, State1),
-            dispatch(State2#{insertion_mode := in_head}, Token)
+            dispatch(State1#{insertion_mode := in_head}, Token)
     end;
 %% in_head state
 dispatch(#{insertion_mode := in_head} = State, Token) ->
@@ -1870,8 +1882,6 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
                  Name == <<"basefont">>;
                  Name == <<"bgsound">>;
                  Name == <<"link">>;
-                 Name == <<"v-slot">>;
-                 Name == <<"v-template">>;
                  Name == <<"meta">> ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
@@ -1884,10 +1894,9 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
             State2#{insertion_mode := text, orig_insertion_mode := in_head};
-        #start_tag{name = <<"component">>} ->
+        #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
-            State2 = add_html_element(Token, State1),
-            State2#{insertion_mode := in_component, orig_insertion_mode := in_head};
+            add_html_element(Token, State1);
         #end_tag{name = <<"head">>} ->
             State1 = maybe_pop_text(State),
             State2 = pop_all_to_tag(<<"head">>, State1),
@@ -1905,13 +1914,14 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
                  Name == <<"script">> ->
             State1 = maybe_pop_text(State),
             pop_all_to_tag(Name, State1);
-        #end_tag{name = <<"component">>} ->
-            case is_open(<<"component">>, State) of
+        #end_tag{name = N, template = true} ->
+
+            case is_open(N, State) of
                 false ->
                     State;
                 true ->
                     State1 = maybe_pop_text(State),
-                    pop_all_to_tag(<<"component">>, State1)
+                    pop_all_to_tag(N, State1)
             end;
         #end_tag{name = Name} when Name == <<"body">>; Name == <<"html">>; Name == <<"br">> ->
             State1 = maybe_pop_text(State),
@@ -1930,8 +1940,7 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
         _ ->
             State1 = maybe_pop_text(State),
             % should be "head"
-            State2 = pop_all_to_tag(<<"head">>, State1),
-            dispatch(State2#{insertion_mode := after_head}, Token)
+            dispatch(State1#{insertion_mode := after_head}, Token)
     end;
 %% in_head_noscript state
 dispatch(#{insertion_mode := in_head_noscript} = State, _Token) ->
@@ -1961,7 +1970,7 @@ dispatch(#{insertion_mode := after_head, fragment_mode := FMode} = State, Token)
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
             State2#{insertion_mode := in_frameset};
-        #start_tag{name = Name}
+        #start_tag{name = Name, template = T}
             when Name == <<"base">>;
                  Name == <<"basefont">>;
                  Name == <<"bgsound">>;
@@ -1970,13 +1979,13 @@ dispatch(#{insertion_mode := after_head, fragment_mode := FMode} = State, Token)
                  Name == <<"noframes">>;
                  Name == <<"script">>;
                  Name == <<"style">>;
-                 Name == <<"component">>;
+                 T == true;
                  % head elements after head
                  Name == <<"title">> ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := after_head};
-        #end_tag{name = <<"component">>} ->
+        #end_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := after_head};
@@ -1993,9 +2002,7 @@ dispatch(#{insertion_mode := after_head, fragment_mode := FMode} = State, Token)
             finish_document(pop_all(State));
         _ ->
             State1 = maybe_pop_text(State),
-            Token1 = #start_tag{name = <<"body">>},
-            State2 = add_html_element(Token1, State1),
-            State2#{insertion_mode := in_body}
+            State1#{insertion_mode := in_body}
     end;
 %% in_body state
 dispatch(#{insertion_mode := in_body} = State, Token) ->
@@ -2035,13 +2042,15 @@ dispatch(#{insertion_mode := in_body} = State, Token) ->
                  Name == <<"basefont">>;
                  Name == <<"bgsound">>;
                  Name == <<"link">>;
-                 Name == <<"meta">>;
-                 % head elements after head
-                 Name == <<"component">> ->
+                 Name == <<"meta">> ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := in_body};
-        #end_tag{name = <<"component">>} ->
+        #start_tag{template = true} ->
+            State1 = maybe_pop_text(State),
+            State2 = dispatch(State1#{insertion_mode := in_head}, Token),
+            State2#{insertion_mode := in_body};
+        #end_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := in_body};
@@ -2375,6 +2384,12 @@ dispatch(#{insertion_mode := in_table} = State, Token) ->
         #doctype{} ->
             % parse error
             State;
+        #start_tag{name = <<"v-slot">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
+        #start_tag{name = <<"v-template">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
         #start_tag{name = <<"caption">>} ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
@@ -2386,9 +2401,7 @@ dispatch(#{insertion_mode := in_table} = State, Token) ->
         % missing group
         #start_tag{name = <<"col">>} ->
             State1 = maybe_pop_text(State),
-            Grp = #start_tag{name = <<"colgroup">>},
-            State2 = add_html_element(Grp, State1),
-            dispatch(State2#{insertion_mode := in_column_group}, Token);
+            dispatch(State1#{insertion_mode := in_column_group}, Token);
         #start_tag{name = N} when N == <<"tbody">>; N == <<"tfoot">>; N == <<"thead">> ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
@@ -2399,9 +2412,7 @@ dispatch(#{insertion_mode := in_table} = State, Token) ->
                  % missing body
                  N == <<"tr">> ->
             State1 = maybe_pop_text(State),
-            Bdy = #start_tag{name = <<"tbody">>},
-            State2 = add_html_element(Bdy, State1),
-            dispatch(State2#{insertion_mode := in_table_body}, Token);
+            dispatch(State1#{insertion_mode := in_table_body}, Token);
         #start_tag{name = <<"table">>} ->
             case is_open(<<"table">>, State) of
                 false ->
@@ -2433,10 +2444,13 @@ dispatch(#{insertion_mode := in_table} = State, Token) ->
                  N == <<"tr">> ->
             % parse error
             State;
-        #start_tag{name = N} when N == <<"style">>; N == <<"script">>; N == <<"component">> ->
+        #start_tag{name = N} when N == <<"style">>; N == <<"script">> ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_table};
-        #end_tag{name = <<"component">>} ->
+        #start_tag{template = true} ->
+            State1 = dispatch(State#{insertion_mode := in_head}, Token),
+            State1#{insertion_mode := in_table};
+        #end_tag{template = true} ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_table};
         #start_tag{name = N} when N == <<"input">>; N == <<"form">> ->
@@ -2531,6 +2545,12 @@ dispatch(#{insertion_mode := in_column_group} = State, Token) ->
             State;
         #expr{data = Expr} ->
             send_event({expr, Expr}, State);
+        #start_tag{name = <<"v-slot">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
+        #start_tag{name = <<"v-template">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_body}, Token),
@@ -2549,11 +2569,11 @@ dispatch(#{insertion_mode := in_column_group} = State, Token) ->
         #end_tag{name = <<"col">>} ->
             % parse error
             State;
-        #start_tag{name = <<"component">>} ->
+        #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := in_column_group};
-        #end_tag{name = <<"component">>} ->
+        #end_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
             State2#{insertion_mode := in_column_group};
@@ -2580,9 +2600,7 @@ dispatch(#{insertion_mode := in_table_body} = State, Token) ->
             State2#{insertion_mode := in_row};
         #start_tag{name = N} when N == <<"th">>; N == <<"td">> ->
             State1 = maybe_pop_text(State),
-            Tok = #start_tag{name = <<"tr">>},
-            State2 = add_html_element(Tok, State1),
-            dispatch(State2#{insertion_mode := in_row}, Token);
+            dispatch(State1#{insertion_mode := in_row}, Token);
         #end_tag{name = N} when N == <<"tbody">>; N == <<"tfoot">>; N == <<"thead">> ->
             case is_open(N, State) of
                 false ->
@@ -2635,6 +2653,12 @@ dispatch(#{insertion_mode := in_table_body} = State, Token) ->
 %% in_row state
 dispatch(#{insertion_mode := in_row} = State, Token) ->
     case Token of
+        #start_tag{name = <<"v-slot">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
+        #start_tag{name = <<"v-template">>} ->
+            State1 = maybe_pop_text(State),
+            add_html_element(Token, State1);
         #start_tag{name = N} when N == <<"th">>; N == <<"td">> ->
             State1 = maybe_pop_text(State),
             State2 = add_html_element(Token, State1),
@@ -2866,10 +2890,13 @@ dispatch(#{insertion_mode := in_select} = State, Token) ->
                     %% XXX Reset the insertion mode appropriately.
                     State2#{insertion_mode := in_body}
             end;
-        #start_tag{name = N} when N == <<"script">>; N == <<"component">> ->
+        #start_tag{name = <<"script">>} ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_select};
-        #end_tag{name = N} when N == <<"component">> ->
+        #start_tag{template = true} ->
+            State1 = dispatch(State#{insertion_mode := in_head}, Token),
+            State1#{insertion_mode := in_select};
+        #end_tag{template = true} ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_select};
         eof ->
@@ -2914,7 +2941,7 @@ dispatch(#{insertion_mode := in_select_in_table} = State, Token) ->
                     %% XXX Reset the insertion mode appropriately.
                     dispatch(State2#{insertion_mode := in_body}, Token)
             end;
-        _ ->
+       _ ->
             State1 = dispatch(State#{insertion_mode := in_select}, Token),
             State1#{insertion_mode := in_select_in_table}
     end;
@@ -2942,11 +2969,13 @@ dispatch(#{insertion_mode := in_component} = State, Token) ->
                  N == <<"noframes">>;
                  N == <<"script">>;
                  N == <<"style">>;
-                 N == <<"component">>;
                  N == <<"title">> ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_component};
-        #end_tag{name = N} when N == <<"component">> ->
+        #start_tag{template = true} ->
+            State1 = dispatch(State#{insertion_mode := in_head}, Token),
+            State1#{insertion_mode := in_component};
+        #end_tag{template = true} ->
             State1 = dispatch(State#{insertion_mode := in_head}, Token),
             State1#{insertion_mode := in_component};
         #start_tag{name = N}
@@ -2968,12 +2997,12 @@ dispatch(#{insertion_mode := in_component} = State, Token) ->
             % parse error
             State;
         eof ->
-            case is_open(<<"component">>, State) of
-                false ->
+            case open_template_tag(State) of
+                undefined ->
                     State;
-                true ->
+                TTag ->
                     State1 = maybe_pop_text(State),
-                    State2 = pop_all_to_tag(<<"component">>, State1),
+                    State2 = pop_all_to_tag(TTag, State1),
                     %% XXX Reset the insertion mode appropriately.
                     dispatch(State2#{insertion_mode := in_body}, Token)
             end
@@ -3026,8 +3055,24 @@ dispatch(#{insertion_mode := after_after_body} = State, Token) ->
 dispatch(#{insertion_mode := after_after_frameset} = State, _Token) ->
     State.
 
-emit(#start_tag{} = Tok, State) ->
-    dispatch(State#{last_start_tag := Tok}, norm_tok(Tok));
+emit(#start_tag{name = <<C, _/binary>> = N} = Tok, State) ->
+    if
+        ?upper_ascii_letter(C) orelse N == <<"component">> orelse N == <<"v-slot">> orelse N == <<"v-template">> ->
+            Tok1 = Tok#start_tag{template = true},
+            dispatch(State#{last_start_tag := Tok1}, norm_tok(Tok1));
+
+        true -> 
+            dispatch(State#{last_start_tag := Tok}, norm_tok(Tok))
+    end;
+emit(#end_tag{name = N} = Tok, State) ->
+    if
+        N == <<"component">> orelse N == <<"v-slot">> orelse N == <<"v-template">> ->
+            Tok1 = Tok#end_tag{template = true},
+            dispatch(State, Tok1);
+
+        true -> 
+            dispatch(State, Tok)
+    end;
 emit(#chars{data = Data}, State) ->
     add_text_chars(Data, State);
 emit(#expr{} = Tok, State) ->
@@ -3161,6 +3206,21 @@ is_open(Name, #{open_elements := Els}) ->
         end,
     lists:any(Pred, Els).
 
+open_template_tag(#{open_elements := Els}) ->
+    Pred =
+        fun (#start_tag{template = true}) ->
+                true;
+            (_) ->
+                false
+        end,
+    case lists:search(Pred, Els) of
+        {value, #start_tag{name = Name}} ->
+            Name;
+
+        _ ->
+            undefined
+    end.
+
 pop_all(State) ->
     State1 = maybe_pop_text(State),
     pop_all_to_tag_(none, State1).
@@ -3250,7 +3310,6 @@ send_event(Event,
              user_event_state := UState,
              line_num := LineNum} =
                State) ->
-    %io:format("~p~n", [M]),
     UState1 = UFun(Event, LineNum, UState),
     State#{user_event_state := UState1}.
 
@@ -3287,7 +3346,7 @@ maybe_pop_text(#{text_node_buff := undefined} = State) ->
 maybe_pop_text(#{text_node_buff := Buff} = State) ->
     TestFun =
         fun(X) ->
-           {start_tag, Y, _, _} = X,
+           {start_tag, Y, _, _, _} = X,
            Y =:= <<"pre">>
         end,
     HasPre = lists:any(TestFun, maps:get(open_elements, State)),
