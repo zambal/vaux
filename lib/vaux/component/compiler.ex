@@ -94,7 +94,7 @@ defmodule Vaux.Component.Compiler do
 
     ast =
       quote do
-        fn unquote(arg) -> unquote(maybe_to_binary(:lists.reverse(expr.ast))) end
+        fn unquote(arg) -> unquote(maybe_to_binary(expr.ast)) end
       end
 
     %{state | stack: [%{expr | ast: ast} | rest]}
@@ -102,7 +102,7 @@ defmodule Vaux.Component.Compiler do
 
   defp compile_slot_node(state, node, _) do
     state = %State{stack: [%Expr{} = expr | rest]} = compile_node(state, node)
-    expr = %{expr | ast: maybe_to_binary(:lists.reverse(expr.ast))}
+    expr = %{expr | ast: maybe_to_binary(expr.ast)}
     %{state | stack: [expr | rest]}
   end
 
@@ -148,8 +148,11 @@ defmodule Vaux.Component.Compiler do
                empty when empty in ["", nil, false] ->
                  unquote(maybe_to_binary(fallback_content.acc))
 
-               content ->
+               content when is_function(content, 1) ->
                  content.(unquote(expr))
+
+               content ->
+                 content
              end
            end, state}
 
@@ -426,7 +429,7 @@ defmodule Vaux.Component.Compiler do
     if is_binary(value) do
       State.concat(state, attr_acc)
     else
-      attr = :lists.reverse(attr_acc) |> maybe_to_binary()
+      attr = attr_acc |> :lists.reverse() |> maybe_to_binary()
 
       expr =
         quote line: line do

@@ -14,6 +14,10 @@ defmodule Vaux.Component.Compiler.State do
     %State{env: env}
   end
 
+  def concat(%State{acc: []} = state, value) do
+    %{state | acc: List.wrap(value)}
+  end
+
   def concat(%State{acc: acc} = state, value) do
     %{state | acc: concat_acc(acc, reverse(value))}
   end
@@ -42,11 +46,10 @@ defmodule Vaux.Component.Compiler.State do
     %{state | assigns_used: :ordsets.union(a1, a2)}
   end
 
-  def concat_acc([], value), do: List.wrap(value)
-  def concat_acc(acc, [value | rest]), do: concat_acc(concat_acc(acc, value), rest)
-  def concat_acc(acc, []), do: acc
-  def concat_acc([bin | rest], value) when is_binary(bin) and is_binary(value), do: [value <> bin | rest]
-  def concat_acc(acc, value), do: [value | acc]
+  defp concat_acc(acc, [value | rest]), do: concat_acc(concat_acc(acc, value), rest)
+  defp concat_acc(acc, []), do: acc
+  defp concat_acc([bin | rest], value) when is_binary(bin) and is_binary(value), do: [value <> bin | rest]
+  defp concat_acc(acc, value), do: [value | acc]
 
   defp reverse(list) when is_list(list), do: :lists.reverse(list)
   defp reverse(x), do: x
