@@ -7,8 +7,6 @@ defmodule Vaux.Component.Builder do
   @const_key :__vaux_const___
 
   def defcomponent(env) do
-    components = Module.get_attribute(env.module, @components_key, [])
-    Module.delete_attribute(env.module, @components_key)
     attrs_schema = Module.get_attribute(env.module, @attrs_key, [])
     Module.delete_attribute(env.module, @attrs_key)
     vars = Module.get_attribute(env.module, @var_key, [])
@@ -80,8 +78,6 @@ defmodule Vaux.Component.Builder do
     end
 
     quote do
-      unquote(handle_requires(components))
-
       @enforce_keys unquote(required)
       defstruct unquote(struct_fields)
 

@@ -7,8 +7,10 @@ defmodule Vaux.Component do
 
   @callback render(state :: struct()) :: iodata()
 
-  defmacro components(comps) when is_list(comps) or is_atom(comps) do
-    Vaux.Component.Builder.put_components(__CALLER__.module, comps)
+  defmacro components(comps) do
+    quote do
+      unquote(comps |> List.wrap() |> Builder.handle_requires())
+    end
   end
 
   defmacro slot(name) do

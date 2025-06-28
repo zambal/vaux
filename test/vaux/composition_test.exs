@@ -338,7 +338,7 @@ defmodule Vaux.CompositionTest do
     end
 
     defmodule Complex.Page do
-      use Vaux.CompositionTest.Complex.Root
+      use Complex.Root
 
       attr :number, :number
 
