@@ -15,7 +15,7 @@ work with if your editor has support for HEEx.
 A minimal example looks like this:
 
 ```elixir
-  defmodule MyComponent do
+  defmodule Components.MyComponent do
     import Vaux.Component
 
     attr :title, :string
@@ -30,7 +30,111 @@ A minimal example looks like this:
 ```
 
 As you can see, Vaux uses the same sigil and template expression syntax as HEEx templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux requires the `vaux` modifier for its `~H` sigil.
-    
+In order to call another component, it needs to be known at compile time. Vaux provides a convenient keyword that both requires and aliases components:
+
+```elixir
+  defmodule Components.Meta do
+    import Vaux.Component
+
+    attr :title, :string
+
+    ~H"""
+    <meta name="viewport" content="width=device-width"/>
+    <title>{@title}</title>
+    """vaux
+  end
+
+  defmodule Layouts.MyLayout do
+    import Vaux.Component
+
+    components Components.{MyComponent, Meta}
+
+    var title: "Hello World"
+
+    ~H"""
+    <html>
+      <head>
+        <meta charset="UTF-8"/>
+        <Meta title={@title}/>
+      </head>
+      <body>
+        <MyComponent title={@title}/>
+      </body>
+    </html>
+    """vaux
+  end
+
+  iex> Vaux.render!(MyComponent, %{"title" => "Hello World"})
+  "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
+```
+
+
+## Directives
+
+Vaux doesn't support block expressions, but it has a rich set of directives to use:
+
+```elixir
+  defmodule Components.AnotherComponent do
+    import Vaux.Component
+
+    attr :fruit, {:enum, ~w(apple banana pear orange)}
+    attr :count, :integer
+
+    ~H"""
+    <body>
+      <!-- case expressions, just like in regular Elixir -->
+      <div :case={@fruit}>
+        <span :clause={"apple"}>{String.upcase(@fruit)}</span>
+        <span :clause={"banana"}>{String.reverse(@fruit)}</span>
+
+        <!-- If the pattern is a string, you can ommit the curly braces  -->
+        <span :clause="pear">{String.capitalize(@fruit)}</span>
+        <span :clause="orange">{String.replace(@fruit, "g", "j")}</span>
+
+        <!-- Guards can be used too -->
+        <span :clause={a when is_atom(a)}>Unexpected</span>
+      </div>
+
+      <!-- Loops can be expressed with the :for directive -->
+      <div :for={number <- 1..@count}>{number}</div>
+
+      <!-- The element with the first truthy :cond expression gets rendered -->
+      <div :cond={@count >= 5}>Too many</div>
+      <div :cond={@count >= 3}>Ok</div>
+
+      <!-- :else can be used as the equivalent of `true -> ...` in a cond expression -->
+      <div :else>Too little</div>
+
+      <!-- :if can be used too -->
+      <div :if={@fruit == "apple"}></div>
+    </body>
+    """vaux
+  end
+
+  iex> Vaux.render!(Components.AnotherComponent, %{"fruit" => "orange", "count" = 3})
+  "<body><div><span>oranje</span></div><div>1</div><div>2</div><div>3</div><div>Ok</div></body>"
+```
+
+If you want to apply a directive to a list of elements, you can use the special `v-template` element as a wrapper, as it won't get rendered.
+
+
+```elixir
+  defmodule Components.AnotherComponent2 do
+    import Vaux.Component
+
+    attr :fruit, {:enum, ~w(apple banana pear orange)}
+
+    ~H"""
+    <v-template :if={String.starts_with?(@fruit, "a")}>
+      <a></a>
+      <b></b>
+    </v-template<
+    """vaux
+  end
+
+  iex> Vaux.render!(Components.AnotherComponent2, %{"fruit" => "apple"})
+  "<a></a><b></b>"
+````
 
 ## Installation
 
