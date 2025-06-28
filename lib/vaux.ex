@@ -4,7 +4,7 @@ defmodule Vaux do
 
   @spec render(component :: module(), attrs :: attributes(), slots :: slot_content()) ::
           {:ok, iodata()} | {:error, Vaux.RuntimeError.t()}
-  def render(component, attrs, slots \\ nil) do
+  def render(component, attrs \\ %{}, slots \\ nil) do
     {:ok, render!(component, attrs, normalize_slots(slots), "nofile", 0)}
   rescue
     error in [Vaux.RuntimeError] ->
@@ -12,7 +12,7 @@ defmodule Vaux do
   end
 
   @spec render!(component :: module(), attrs :: attributes(), slots :: slot_content()) :: iodata()
-  def render!(component, attrs, slots \\ nil) do
+  def render!(component, attrs \\ %{}, slots \\ nil) do
     render!(component, attrs, normalize_slots(slots), "nofile", 0)
   end
 
