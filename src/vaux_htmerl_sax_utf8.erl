@@ -2384,10 +2384,10 @@ dispatch(#{insertion_mode := in_table} = State, Token) ->
         #doctype{} ->
             % parse error
             State;
-        #start_tag{name = <<"v-slot">>} ->
+        #start_tag{name = <<"slot">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
-        #start_tag{name = <<"v-template">>} ->
+        #start_tag{name = <<"template">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
         #start_tag{name = <<"caption">>} ->
@@ -2545,10 +2545,10 @@ dispatch(#{insertion_mode := in_column_group} = State, Token) ->
             State;
         #expr{data = Expr} ->
             send_event({expr, Expr}, State);
-        #start_tag{name = <<"v-slot">>} ->
+        #start_tag{name = <<"slot">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
-        #start_tag{name = <<"v-template">>} ->
+        #start_tag{name = <<"template">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
         #start_tag{name = <<"html">>} ->
@@ -2653,10 +2653,10 @@ dispatch(#{insertion_mode := in_table_body} = State, Token) ->
 %% in_row state
 dispatch(#{insertion_mode := in_row} = State, Token) ->
     case Token of
-        #start_tag{name = <<"v-slot">>} ->
+        #start_tag{name = <<"slot">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
-        #start_tag{name = <<"v-template">>} ->
+        #start_tag{name = <<"template">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
         #start_tag{name = N} when N == <<"th">>; N == <<"td">> ->
@@ -3057,7 +3057,7 @@ dispatch(#{insertion_mode := after_after_frameset} = State, _Token) ->
 
 emit(#start_tag{name = <<C, _/binary>> = N} = Tok, State) ->
     if
-        ?upper_ascii_letter(C) orelse N == <<"component">> orelse N == <<"v-slot">> orelse N == <<"v-template">> ->
+        ?upper_ascii_letter(C) orelse N == <<"component">> orelse N == <<"slot">> orelse N == <<"template">> ->
             Tok1 = Tok#start_tag{template = true},
             dispatch(State#{last_start_tag := Tok1}, norm_tok(Tok1));
 
@@ -3066,7 +3066,7 @@ emit(#start_tag{name = <<C, _/binary>> = N} = Tok, State) ->
     end;
 emit(#end_tag{name = N} = Tok, State) ->
     if
-        N == <<"component">> orelse N == <<"v-slot">> orelse N == <<"v-template">> ->
+        N == <<"component">> orelse N == <<"slot">> orelse N == <<"template">> ->
             Tok1 = Tok#end_tag{template = true},
             dispatch(State, Tok1);
 
@@ -3195,7 +3195,7 @@ add_open_element(Element, #{open_elements := Els} = State) ->
 get_current_node(#{open_elements := [E | _]}) ->
     E;
 get_current_node(#{open_elements := []}) ->
-    #start_tag{name = <<"v-template">>}.
+    #start_tag{name = <<"template">>}.
 
 is_open(Name, #{open_elements := Els}) ->
     Pred =

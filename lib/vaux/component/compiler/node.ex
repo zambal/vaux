@@ -4,7 +4,7 @@ defmodule Vaux.Component.Compiler.Node do
   @dialyzer {:no_return, raise_error: 2}
   @compile {:inline, raise_error: 2}
 
-  @directive_attrs ~w(:for :cond :if :else :case :clause :bind :let)
+  @directive_attrs ~w(:for :cond :if :else :case :clause :bind :let :keep)
 
   @type directive :: :":for" | :":cond" | :":if" | :":else" | :":case" | :":clause"
   @type attrs :: [{String.t(), String.t() | Macro.t()}]
@@ -21,6 +21,7 @@ defmodule Vaux.Component.Compiler.Node do
           attrs: attrs(),
           content: [t()] | String.t(),
           parent: t(),
+          keep: boolean(),
           type: node_type()
         }
 
@@ -32,10 +33,13 @@ defmodule Vaux.Component.Compiler.Node do
             attrs: [],
             content: [],
             parent: nil,
+            keep: true,
             type: :element
 
   def new(tag, attrs, parent, line, content \\ []) do
     type = get_type_from_tag(tag)
+
+    keep = if type == :slot, do: false, else: true
 
     {parent, {_file, offset} = env} =
       case parent do
@@ -43,7 +47,7 @@ defmodule Vaux.Component.Compiler.Node do
         %Node{env: env} = node -> {node, env}
       end
 
-    node = %Node{tag: tag, parent: parent, env: env, line: offset + line, content: content, type: type}
+    node = %Node{tag: tag, parent: parent, env: env, line: offset + line, content: content, keep: keep, type: type}
     add_attributes(node, attrs)
   end
 
@@ -60,11 +64,11 @@ defmodule Vaux.Component.Compiler.Node do
     put_directive(node, dir, expr_string)
   end
 
-  defp add_attribute(%Node{tag: "v-template", type: :slot} = node, {_, _, "#" <> key, _}) do
+  defp add_attribute(%Node{tag: "template", type: :slot} = node, {_, _, "#" <> key, _}) do
     %{node | attrs: [try_to_existing_atom(key, node, "no slot :#{key} defined")]}
   end
 
-  defp add_attribute(%Node{tag: "v-slot", type: :slot} = node, {_, _, "#" <> key, _}) do
+  defp add_attribute(%Node{tag: "slot", type: :slot} = node, {_, _, "#" <> key, _}) do
     %{node | attrs: [try_to_existing_atom(key, node, "no slot :#{key} defined")]}
   end
 
@@ -74,6 +78,10 @@ defmodule Vaux.Component.Compiler.Node do
 
   defp add_attribute(%Node{attrs: attrs} = node, {_, _, name, value}) do
     %{node | attrs: [{name, value} | attrs]}
+  end
+
+  defp put_directive(%Node{} = node, ":keep", _expr_string) do
+    %{node | keep: true}
   end
 
   defp put_directive(%Node{} = node, binding, expr_string) when binding in ~w(:bind :let) do
@@ -110,8 +118,8 @@ defmodule Vaux.Component.Compiler.Node do
   def get_type_from_tag(:characters), do: :content
   def get_type_from_tag(:expr), do: :content
 
-  def get_type_from_tag("v-template"), do: :slot
-  def get_type_from_tag("v-slot"), do: :slot
+  def get_type_from_tag("template"), do: :slot
+  def get_type_from_tag("slot"), do: :slot
 
   def get_type_from_tag(tag) do
     if String.match?(tag, ~r/^[[:upper:]].*$/u),

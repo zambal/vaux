@@ -28,7 +28,7 @@ defmodule Vaux.Component.Compiler do
 
     {:ok, root, _} =
       :vaux_htmerl_sax_utf8.string(string,
-        user_state: Node.new("v-template", [], {env.file, env.line}, env.line),
+        user_state: Node.new("template", [], {env.file, env.line}, env.line),
         event_fun: &handle_event/3,
         fragment_mode: true
       )
@@ -113,21 +113,33 @@ defmodule Vaux.Component.Compiler do
 
   defp setup_directive(node), do: node
 
-  defp push_node(_state, %Node{tag: "v-template", attrs: [_name], dir: {dir, _}, type: :slot} = node)
+  defp push_node(_state, %Node{tag: "template", attrs: [_name], dir: {dir, _}, type: :slot} = node)
        when dir in ~w(:for :clause :else :cond)a do
-    raise_error(node, "`#{dir}` can't be used on a named `v-template` element")
+    raise_error(node, "`#{dir}` can't be used on a named `template` element")
   end
 
-  defp push_node(state, %Node{tag: "v-template", attrs: [name], type: :slot} = node) do
-    temp_state = compile_content(State.new(state), node.content)
-    expr = Expr.new(temp_state.acc, "v-template", node.dir, name, node.line)
+  defp push_node(state, %Node{tag: "template", attrs: [name], type: :slot} = node) do
+    temp_state =
+      if node.keep do
+        state
+        |> State.new()
+        |> State.concat("</" <> node.tag <> ">")
+        |> compile_content(node.content)
+        |> State.concat(">")
+        |> compile_attributes(node.attrs, node)
+        |> State.concat("<" <> node.tag)
+      else
+        compile_content(State.new(state), node.content)
+      end
+
+    expr = Expr.new(temp_state.acc, "template", node.dir, name, node.line)
 
     state
     |> State.merge_assigns_used(temp_state)
     |> State.push_stack(expr)
   end
 
-  defp push_node(state, %Node{tag: "v-slot", type: :slot, binding: binding} = node) do
+  defp push_node(state, %Node{tag: "slot", type: :slot, binding: binding} = node) do
     slot_key =
       case node.attrs do
         [] -> :__slot__
@@ -168,7 +180,23 @@ defmodule Vaux.Component.Compiler do
            end, state}
       end
 
-    expr = Expr.new(slot, "v-slot", node.dir, slot_key, node.line)
+    {slot, state} =
+      if node.keep do
+        temp_state =
+          state
+          |> State.new()
+          |> State.concat("</" <> node.tag <> ">")
+          |> State.concat(slot)
+          |> State.concat(">")
+          |> compile_attributes(node.attrs, node)
+          |> State.concat("<" <> node.tag)
+
+        {temp_state.acc, State.merge_assigns_used(state, temp_state)}
+      else
+        {slot, state}
+      end
+
+    expr = Expr.new(slot, "slot", node.dir, slot_key, node.line)
 
     state
     |> State.merge_assigns_used(fallback_content)
@@ -220,9 +248,19 @@ defmodule Vaux.Component.Compiler do
 
   defp push_node(state, %Node{type: :slot} = node) do
     temp_state =
-      state
-      |> State.new()
-      |> compile_content(node.content)
+      if node.keep do
+        state
+        |> State.new()
+        |> State.concat("</" <> node.tag <> ">")
+        |> compile_content(node.content)
+        |> State.concat(">")
+        |> compile_attributes(node.attrs, node)
+        |> State.concat("<" <> node.tag)
+      else
+        state
+        |> State.new()
+        |> compile_content(node.content)
+      end
 
     expr = Expr.new(temp_state.acc, node.tag, node.dir, nil, node.line)
 
@@ -339,7 +377,7 @@ defmodule Vaux.Component.Compiler do
     State.concat_and_flush(state, ast)
   end
 
-  defp flush_expr(%State{stack: [%Expr{tag: "v-slot", ast: ast, dir: nil}]} = state) do
+  defp flush_expr(%State{stack: [%Expr{tag: "slot", ast: ast, dir: nil}]} = state) do
     State.concat_and_flush(state, ast)
   end
 
@@ -499,7 +537,7 @@ defmodule Vaux.Component.Compiler do
 
   defp find_named_slots(nodes) do
     Enum.split_with(nodes, fn
-      %Node{tag: "v-template", attrs: [_slot_key], type: :slot} -> true
+      %Node{tag: "template", attrs: [_slot_key], type: :slot} -> true
       _ -> false
     end)
   end

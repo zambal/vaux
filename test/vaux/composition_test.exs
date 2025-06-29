@@ -18,7 +18,7 @@ defmodule Vaux.CompositionTest do
           <h3>{@sub_title}</h3>
         </header>
         <footer>
-          <v-slot>FALLBACK</v-slot>
+          <slot>FALLBACK</slot>
         </footer>
       </body>
       """vaux
@@ -65,7 +65,7 @@ defmodule Vaux.CompositionTest do
           <h3>{@sub_title}</h3>
         </header>
         <footer>
-          <v-slot :bind={String.upcase(@title)}>FALLBACK</v-slot>
+          <slot :bind={String.upcase(@title)}>FALLBACK</slot>
         </footer>
       </body>
       """vaux
@@ -109,10 +109,10 @@ defmodule Vaux.CompositionTest do
       ~H"""
       <body>
         <header>
-          <v-slot #header>FALLBACK</v-slot>
+          <slot #header>FALLBACK</slot>
         </header>
         <footer>
-          <v-slot #footer>FALLBACK</v-slot>
+          <slot #footer>FALLBACK</slot>
         </footer>
       </body>
       """vaux
@@ -125,12 +125,12 @@ defmodule Vaux.CompositionTest do
       ~H"""
         <html>
           <OtherComponent4>
-            <v-template #header>
+            <template #header>
               <h1>Hello World</h1>
-            </v-template>
-            <v-template #footer>
+            </template>
+            <template #footer>
               <a href="/solar-system">and beyond</a>
-            </v-template>
+            </template>
           </OtherComponent4>
         </html>
       """vaux
@@ -157,10 +157,10 @@ defmodule Vaux.CompositionTest do
       ~H"""
       <body>
         <header>
-          <v-slot #header :bind={String.upcase(@test)}>FALLBACK</v-slot>
+          <slot #header :bind={String.upcase(@test)}>FALLBACK</slot>
         </header>
         <footer>
-          <v-slot #footer>FALLBACK</v-slot>
+          <slot #footer>FALLBACK</slot>
         </footer>
       </body>
       """vaux
@@ -173,12 +173,12 @@ defmodule Vaux.CompositionTest do
       ~H"""
         <html>
           <OtherComponent5 test="hello world">
-            <v-template #header :let={upcased}>
+            <template #header :let={upcased}>
               <h1>{upcased}</h1>
-            </v-template>
-            <v-template #footer>
+            </template>
+            <template #footer>
               <a href="/solar-system">and beyond</a>
-            </v-template>
+            </template>
           </OtherComponent5>
         </html>
       """vaux
@@ -280,17 +280,17 @@ defmodule Vaux.CompositionTest do
       ~H"""
         <html lang={@lang}>
           <head>
-            <v-slot #pre_head>
+            <slot #pre_head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width" />
-            </v-slot>
-            <v-slot #head></v-slot>
+            </slot>
+            <slot #head></slot>
           </head>
           <body>
-            <main><v-slot #main></v-slot></main>
+            <main><slot #main></slot></main>
             <footer>
-              <v-slot #footer ></v-slot>
-              <v-slot #footer2 :bind={"FOOTER2"} ></v-slot>
+              <slot #footer ></slot>
+              <slot #footer2 :bind={"FOOTER2"} ></slot>
             </footer>
           </body>
         </html>
@@ -322,7 +322,7 @@ defmodule Vaux.CompositionTest do
          </thead>
          <tbody>
            <tr >
-              <v-slot :bind={@person}></v-slot>
+              <slot :bind={@person}></slot>
            </tr>
          </tbody>
        </table>
@@ -344,11 +344,11 @@ defmodule Vaux.CompositionTest do
 
       ~H"""
       <Layout lang="en">
-        <v-template #head>
+        <template #head>
           <title>{@!title}</title>
-        </v-template>
+        </template>
 
-        <v-template #main>
+        <template #main>
           <Person :let={user}>
            <th>{user.name}</th>
            <th>{user.birth_date}</th>
@@ -361,20 +361,20 @@ defmodule Vaux.CompositionTest do
            <th>{3}</th>
            <th>{4}</th>
           </Person>
-        </v-template>
+        </template>
 
-        <v-template #footer>
+        <template #footer>
           <p>{"It's always #{@number}"}</p>
           <p>{"It's always #{@number}"}</p>
           <p>{"It's always #{@number}"}</p>
           <p>{"It's always #{@number}"}</p>
-        </v-template>
-        <v-template #footer2 :let={f}>
+        </template>
+        <template #footer2 :let={f}>
           <p>{"#{f}-1"}</p>
           <p>{"#{f}-2"}</p>
           <p>{"#{f}-3"}</p>
           <p>{"#{f}-4"}</p>
-        </v-template>
+        </template>
       </Layout>
       """vaux
     end

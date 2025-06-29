@@ -119,8 +119,9 @@ directives to use:
   "<body><div><span>oranje</span></div><div>1</div><div>2</div><div>3</div><div>Ok</div></body>"
 ```
 
-If you want to apply a directive to a list of elements, you can use the special `v-template` element as a wrapper, as it won't get rendered.
-
+If you want to apply a directive to a list of elements, you can use the 
+`template` element as a wrapper, as it won't get rendered by default (you can 
+use the `:keep` directive to keep te `template` element in the rendered output).
 
 ```elixir
   defmodule Components.AnotherComponent2 do
@@ -129,10 +130,10 @@ If you want to apply a directive to a list of elements, you can use the special 
     attr :fruit, {:enum, ~w(apple banana pear orange)}
 
     ~H"""
-    <v-template :if={String.starts_with?(@fruit, "a")}>
+    <template :if={String.starts_with?(@fruit, "a")}>
       <a></a>
       <b></b>
-    </v-template<
+    </template<
     """vaux
   end
 
