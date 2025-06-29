@@ -67,7 +67,7 @@ macro that both requires and aliases components:
     """vaux
   end
 
-  iex> Vaux.render!(MyComponent, %{"title" => "Hello World"})
+  iex> Vaux.render!(Layouts.MyLayout)
   "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
 ```
 
