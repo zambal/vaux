@@ -29,8 +29,11 @@ A minimal example looks like this:
   "<h1>Hello World</h1>"
 ```
 
-As you can see, Vaux uses the same sigil and template expression syntax as HEEx templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux requires the `vaux` modifier for its `~H` sigil.
-In order to call another component, it needs to be known at compile time. Vaux provides a convenient keyword that both requires and aliases components:
+As you can see, Vaux uses the same sigil and template expression syntax as HEEx 
+templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux 
+requires the `vaux` modifier for its `~H` sigil.In order to call another 
+component, it needs to be known at compile time. Vaux provides `components/1` 
+macro that both requires and aliases components:
 
 ```elixir
   defmodule Components.Meta do
@@ -71,7 +74,8 @@ In order to call another component, it needs to be known at compile time. Vaux p
 
 ## Directives
 
-Vaux doesn't support block expressions, but it has a rich set of directives to use:
+Vaux doesn't support block expressions, but it has an extensive set of 
+directives to use:
 
 ```elixir
   defmodule Components.AnotherComponent do
@@ -134,7 +138,39 @@ If you want to apply a directive to a list of elements, you can use the special 
 
   iex> Vaux.render!(Components.AnotherComponent2, %{"fruit" => "apple"})
   "<a></a><b></b>"
-````
+```
+
+
+## Schemas and validation
+
+Vaux integrates with [JSV](https://hexdocs.pm/jsv/), a modern JSON Schema 
+validation library. When defining an attribute with the `attr/3` macro, most 
+JSON schema validation options can be used:
+
+```elixir
+  defmodule Components.Validations do
+    import Vaux.Component
+
+    # Both Elixir friendly snake_case and JSON Schema's camelCase notation can be used 
+    attr :title, :string, min_length: 8, maxLength: 16, required: true
+    attr :count, :integer, required: true
+
+    # If the type of an array doesn't need extra validation, a shorthand notation can be used 
+    attr :numbers1, :array, items: :integer
+    attr :numbers2, {:array, :integer}
+
+    # Shorthand notation for objects is available too
+    attr :object1, :object, properties: %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
+    attr :object2, %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
+
+    ~H""vaux
+  end
+
+```
+
+
+
+
 
 ## Installation
 
