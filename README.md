@@ -1,5 +1,17 @@
 # Vaux
 
+## Installation
+
+The package can be installed by adding `vaux` to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:vaux, "~> 0.3"}
+  ]
+end
+```
+
 ## Introduction
 
 Vaux (rhymes with yo) provides composable html templates for Elixir. It uses a
@@ -15,7 +27,7 @@ work with if your editor has support for HEEx.
 A minimal example looks like this:
 
 ```elixir
-  defmodule Components.MyComponent do
+  defmodule Component.Example1 do
     import Vaux.Component
 
     attr :title, :string
@@ -25,32 +37,31 @@ A minimal example looks like this:
     """vaux
   end
 
-  iex> Vaux.render!(MyComponent, %{"title" => "Hello World"})
+  iex> Vaux.render!(Component.Example1, %{"title" => "Hello World"})
   "<h1>Hello World</h1>"
 ```
 
 As you can see, Vaux uses the same sigil and template expression syntax as HEEx 
 templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux 
-requires the `vaux` modifier for its `~H` sigil.In order to call another 
-component, it needs to be known at compile time. Vaux provides `components/1` 
+requires the `vaux` modifier for its `~H` sigil. In order to call another 
+component, it needs to be known at compile time. Vaux provides the `components/1` 
 macro that both requires and aliases components:
 
 ```elixir
-  defmodule Components.Meta do
+  defmodule Component.Example2 do
     import Vaux.Component
 
     attr :title, :string
 
     ~H"""
-    <meta name="viewport" content="width=device-width"/>
     <title>{@title}</title>
     """vaux
   end
 
-  defmodule Layouts.MyLayout do
+  defmodule Page.Page1 do
     import Vaux.Component
 
-    components Components.{MyComponent, Meta}
+    components Component.{Example1, Example2}
 
     var title: "Hello World"
 
@@ -58,19 +69,123 @@ macro that both requires and aliases components:
     <html>
       <head>
         <meta charset="UTF-8"/>
-        <Meta title={@title}/>
+        <meta name="viewport" content="width=device-width"/>
+        <Example2 title={@title}/>
       </head>
       <body>
-        <MyComponent title={@title}/>
+        <Example1 title={@title}/>
       </body>
     </html>
     """vaux
   end
 
-  iex> Vaux.render!(Layouts.MyLayout)
+  iex> Vaux.render!(Page.Page1)
   "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
 ```
 
+## Slots
+
+Every component has a default slot that holds the element's content:
+
+```elixir
+
+  defmodule Layout.Layout1 do
+    import Vaux.Component
+
+    ~H"""
+    <html>
+      <body>
+        <slot><p>FALLBACK CONTENT</p></slot>
+      </body>
+    </html>
+    """vaux
+  end
+
+  defmodule Page.Page2 do
+    import Vaux.Component
+
+    components [
+      Component.Example1,
+      Layout.Layout1
+    ]
+
+    ~H"""
+    <Layout1>
+      <Example1 title="Hello World"/>
+    </Layout1>
+    """vaux
+  end
+
+  iex> Vaux.render!(Page.Page2)
+  "<html><body><h1>Hello World</h1></body></html>"
+
+  defmodule Page.Page3 do
+    import Vaux.Component
+
+    components Layout.Layout1
+
+    ~H"""
+    <!-- Render fallback content if the component doesn't have any child elements -->
+    <Layout1></Layout1>
+    """vaux
+  end
+
+  iex> Vaux.render!(Page.Page3)
+  "<html><body><p>FALLBACK CONTENT</p></body></html>"
+```
+
+Vaux also supports named slots. This allows you to easily separate page layout from page content.
+
+Named slots need to be defined with the `slot/1` macro. This allows Vaux to 
+catch typos in the template at compile time and gives a component user a quick 
+overview what slots are available.
+
+```elixir
+  defmodule Layout.Layout2 do
+    import Vaux.Component
+
+    slot :head
+    slot :body
+
+    ~H"""
+    <html>
+      <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width"/>
+        <slot #head></slot>
+      </head>
+      <body>
+        <slot #body></slot>
+      </body>
+    </html>
+    """vaux
+  end
+
+  defmodule Page.Page4 do
+    import Vaux.Component
+
+    components [
+      Component.{Example1, Example2},
+      Layout.Layout2
+    ]
+
+    var title: "Hello World"
+
+    ~H"""
+      <Layout2>
+        <template #head>
+          <Example2 title={@title}/>
+        </template>
+        <template #body>
+          <Example1 title={@title}/>
+        </template>
+      </Layout2>
+    """vaux
+  end
+  
+  iex> Vaux.render!(Page.Page4)
+  "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
+```
 
 ## Directives
 
@@ -78,7 +193,7 @@ Vaux doesn't support block expressions, but it has an extensive set of
 directives to use:
 
 ```elixir
-  defmodule Components.AnotherComponent do
+  defmodule Component.DirectivesExample do
     import Vaux.Component
 
     attr :fruit, {:enum, ~w(apple banana pear orange)}
@@ -106,7 +221,7 @@ directives to use:
       <div :cond={@count >= 5}>Too many</div>
       <div :cond={@count >= 3}>Ok</div>
 
-      <!-- :else can be used as the equivalent of `true -> ...` in a cond expression -->
+      <!-- :else can be used as the equivalent of `true -> ...` in a regular Elixir cond expression -->
       <div :else>Too little</div>
 
       <!-- :if can be used too -->
@@ -115,7 +230,7 @@ directives to use:
     """vaux
   end
 
-  iex> Vaux.render!(Components.AnotherComponent, %{"fruit" => "orange", "count" = 3})
+  iex> Vaux.render!(Component.DirectivesExample, %{"fruit" => "orange", "count" => 3})
   "<body><div><span>oranje</span></div><div>1</div><div>2</div><div>3</div><div>Ok</div></body>"
 ```
 
@@ -124,7 +239,7 @@ If you want to apply a directive to a list of elements, you can use the
 use the `:keep` directive to keep te `template` element in the rendered output).
 
 ```elixir
-  defmodule Components.AnotherComponent2 do
+  defmodule Component.Example3 do
     import Vaux.Component
 
     attr :fruit, {:enum, ~w(apple banana pear orange)}
@@ -133,23 +248,23 @@ use the `:keep` directive to keep te `template` element in the rendered output).
     <template :if={String.starts_with?(@fruit, "a")}>
       <a></a>
       <b></b>
-    </template<
+    </template>
     """vaux
   end
 
-  iex> Vaux.render!(Components.AnotherComponent2, %{"fruit" => "apple"})
+  iex> Vaux.render!(Component.Example3, %{"fruit" => "apple"})
   "<a></a><b></b>"
 ```
 
 
-## Schemas and validation
+## Attribute validation
 
 Vaux integrates with [JSV](https://hexdocs.pm/jsv/), a modern JSON Schema 
 validation library. When defining an attribute with the `attr/3` macro, most 
 JSON schema validation options can be used:
 
 ```elixir
-  defmodule Components.Validations do
+  defmodule Component.Validations do
     import Vaux.Component
 
     # Both Elixir friendly snake_case and JSON Schema's camelCase notation can be used 
@@ -161,26 +276,105 @@ JSON schema validation options can be used:
     attr :numbers2, {:array, :integer}
 
     # Shorthand notation for objects is available too
-    attr :object1, :object, properties: %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
-    attr :object2, %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
+    attr :person1, :object, properties: %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
+    attr :person2, %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
 
     ~H""vaux
   end
-
 ```
 
 
+## `Vaux.Component` behaviour and `hanlde_state/1` callback
 
+Every component implements the `Vaux.Component` behaviour. This 
+behaviour requires two functions to be implemented: `handle_state/1` and 
+`render/1`. Both receive a struct that is defined by the `sigil_H/1` macro. 
+This struct contains all defined attributes, variables and slots as fields. The 
+`handle_state/1` function allows you to preprocess atributes and setup internal 
+variables before it's passed to the `render/1` function. The `sigil_H/1` macro 
+defines `render/1` and also provides an overridable default implementation for 
+`handle_state/1`.
 
-
-## Installation
-
-The package can be installed by adding `vaux` to your list of dependencies in `mix.exs`:
+The main idea behind the `handle_state/1` callback is that it allows you to 
+keep most complex control flow and data transformations out of the template. 
+For top level components however, it can be convenient to treat the callback as 
+a type of view controller and let it fetch data from a data source itself. When 
+to apply this strategy boils down to the same arguments when thinking about 
+side effects in regular code: pure functions tend to be easier to compose and 
+reason about, so that is a good default. However, making some key components 
+responsible for fetching data makes it simpler to reuse these components in 
+different contexts.
 
 ```elixir
-def deps do
-  [
-    {:vaux, "~> 0.3"}
-  ]
-end
+  defmodule Component.StateExample do
+    import Vaux.Component
+
+    @some_data_source %{name: "Jan Jansen", hobbies: ~w(cats drawing)}
+
+    attr :title, :string
+    var :hobbies
+
+    ~H"""
+      <section>
+        <h1>{@title}</h1>
+        <p>Current hobbies:{@hobbies}</p>
+      </section>
+    """vaux
+
+    def handle_state(%__MODULE__{title: title} = state) do
+      %{name: name, hobbies: hobbies} = @some_data_source
+
+      title = EEx.eval_string(title, assigns: [name: name])
+      hobbies = hobbies |> Enum.map(&String.capitalize/1) |> Enum.join(", ")
+
+      {:ok, %{state | title: title, hobbies: " " <> hobbies}}
+    end
+  end
+
+  iex> Vaux.render!(Component.StateExample, %{"title" => "Hello <%= @name %>"})
+  "<section><h1>Hello Jan Jansen</h1><p>Current hobbies: Cats, Drawing</p></section>"
 ```
+
+## Root modules
+
+Vaux allows you to define root modules. These modules can be used to bundle 
+common elements that other components are able to use. 
+
+```elixir
+  defmodule MyRoot do
+    import Vaux.Root
+
+    components [
+      Component.{Example1, Example2},
+      Layout.Layout2
+    ]
+
+    const title: "Hello World"
+  end
+
+  defmodule Page.Page5 do
+    use MyRoot
+
+    ~H"""
+      <Layout2>
+        <template #head>
+          <Example2 title={@!title}/>
+        </template>
+        <template #body>
+          <Example1 title={@!title}/>
+        </template>
+      </Layout2>
+    """vaux
+  end
+  
+  iex> Vaux.render!(Page.Page5)
+  "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
+```
+
+The `const/1` macro allow you to define static data that is reused by multiple 
+components. These can be accessed in templates by the special `@!my_const` 
+syntax. The `components/1` macro works the same as in component definitions.
+
+When at least one `const/1` or `components/1` definition is included in a root 
+module, a `__using__/1` macro is created for the root module that allows you to use 
+it in a component. 
