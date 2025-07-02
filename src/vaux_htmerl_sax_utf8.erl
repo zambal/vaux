@@ -1781,7 +1781,8 @@ dispatch(#{insertion_mode := before_html, fragment_mode := FMode} = State, Token
         #char{data = C} when ?ws(C) ->
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
@@ -1828,7 +1829,8 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_head}, Token),
@@ -1872,7 +1874,8 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_body}, Token),
@@ -1957,7 +1960,8 @@ dispatch(#{insertion_mode := after_head, fragment_mode := FMode} = State, Token)
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_body}, Token),
@@ -2016,7 +2020,8 @@ dispatch(#{insertion_mode := in_body} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{name = Name}
             when Name == <<"html">>; Name == <<"body">>; Name == <<"frameset">> ->
             State;
@@ -2353,7 +2358,8 @@ dispatch(#{insertion_mode := text} = State, Token) ->
         #char{data = C} ->
             add_text_char(C, State);
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         _ ->
             #{orig_insertion_mode := Orig} = State,
             dispatch(State#{insertion_mode := Orig, orig_insertion_mode := undefined}, Token)
@@ -2470,7 +2476,8 @@ dispatch(#{insertion_mode := in_table_text} = State, Token) ->
         #char{data = C} ->
             add_text_char(C, State);
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         _ ->
             #{orig_insertion_mode := Orig} = State1 = maybe_pop_text(State),
             dispatch(State1#{insertion_mode := Orig, orig_insertion_mode := undefined}, Token)
@@ -2544,7 +2551,8 @@ dispatch(#{insertion_mode := in_column_group} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{name = <<"slot">>} ->
             State1 = maybe_pop_text(State),
             add_html_element(Token, State1);
@@ -2804,7 +2812,8 @@ dispatch(#{insertion_mode := in_select} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
             State2 = dispatch(State1#{insertion_mode := in_body}, Token),
@@ -3017,7 +3026,8 @@ dispatch(#{insertion_mode := after_body} = State, Token) ->
             State1 = maybe_pop_text(State),
             send_event({comment, Comment}, State1);
         #expr{data = Expr} ->
-            send_event({expr, Expr}, State);
+            State1 = maybe_pop_text(State),
+            send_event({expr, Expr}, State1);
         #doctype{} ->
             % parse error
             State;
