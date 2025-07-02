@@ -193,65 +193,6 @@ defmodule Vaux.CompositionTest do
     assert expected == result
   end
 
-  test "invalid attribute call" do
-    assert_raise Vaux.CompileError, ~r/.invalid.*/, fn ->
-      defmodule OtherComponent2 do
-        import Vaux.Component
-
-        attr :title, :string, required: true
-        attr :sub_title, :string
-
-        ~H"""
-        <header>
-          <h1>{@title}</h1>
-          <h3>{@sub_title}</h3>
-        </header>
-        """vaux
-      end
-
-      defmodule TestComponent do
-        import Vaux.Component
-        require OtherComponent2
-
-        attr :title
-        attr :sub_title
-
-        ~H"""
-          <OtherComponent2 title={@title} sub_title2={@sub_title}/>
-        """vaux
-      end
-    end
-  end
-
-  test "template missing attribute call" do
-    assert_raise Vaux.CompileError, ~r/.required.*/, fn ->
-      defmodule OtherComponent3 do
-        import Vaux.Component
-
-        attr :title, :string, required: true
-        attr :sub_title, :string
-
-        ~H"""
-        <header>
-          <h1>{@title}</h1>
-          <h3>{@sub_title}</h3>
-        </header>
-        """vaux
-      end
-
-      defmodule TestComponent do
-        import Vaux.Component
-        require OtherComponent3
-
-        attr :sub_title
-
-        ~H"""
-          <OtherComponent3 sub_title={@sub_title}/>
-        """vaux
-      end
-    end
-  end
-
   test "missing template call" do
     assert_raise Vaux.CompileError, fn ->
       defmodule TestComponent do

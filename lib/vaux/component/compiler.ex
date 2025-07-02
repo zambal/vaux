@@ -588,7 +588,12 @@ defmodule Vaux.Component.Compiler do
             end
 
           {:error, description} ->
-            raise Vaux.CompileError, file: state.env.file, line: line, description: description
+            IO.warn(description,
+              file: state.env.file,
+              line: line,
+              module: state.env.module,
+              function: {:render, 2}
+            )
         end
     end
   end
@@ -607,7 +612,7 @@ defmodule Vaux.Component.Compiler do
              Enum.map(invalid, &"\n\t- invalid attribute `#{&1}`"))
           |> Enum.join()
 
-        description = "error calling component #{inspect(component)}:\n" <> errors <> "\n"
+        description = "valdation error in component call:\n" <> errors <> "\n"
         {:error, description}
     end
   end
