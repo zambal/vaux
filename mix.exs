@@ -1,7 +1,7 @@
 defmodule Vaux.MixProject do
   use Mix.Project
 
-  @source_url "https://github.com/lud/jsv"
+  @source_url "https://github.com/zambal/vaux"
   @version "0.3.7"
 
   def project do
@@ -50,7 +50,7 @@ defmodule Vaux.MixProject do
       name: :vaux,
       maintainers: ["Vincent Siliakus"],
       licenses: ["Apache-2.0"],
-      links: %{"Github" => "https://github.com/zambal/vaux"}
+      links: %{"Github" => @source_url}
     ]
   end
 end
