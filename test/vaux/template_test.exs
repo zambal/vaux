@@ -23,7 +23,7 @@ defmodule VauxTest.Template do
       """vaux
     end
 
-    result = Vaux.render!(TestComponent, %{})
+    result = Vaux.render!(TestComponent)
 
     TestHelper.unload(TestComponent)
 
@@ -82,7 +82,7 @@ defmodule VauxTest.Template do
     true_result = Vaux.render!(TestComponent, %{"title" => true, "conditional" => true})
     false_result = Vaux.render!(TestComponent, %{"title" => false, "conditional" => false})
     nil_result = Vaux.render!(TestComponent, %{"title" => nil, "conditional" => nil})
-    void_result = Vaux.render!(TestComponent, %{})
+    void_result = Vaux.render!(TestComponent)
     empty_result = Vaux.render!(TestComponent, %{"title" => "", "conditional" => ""})
 
     TestHelper.unload(TestComponent)
@@ -106,10 +106,26 @@ defmodule VauxTest.Template do
       """vaux
     end
 
-    result = Vaux.render!(TestComponent, %{})
+    result = Vaux.render!(TestComponent)
 
     TestHelper.unload(TestComponent)
 
     assert "<img src=\"\"/><br/><input type=\"number\" value=\"42\"/><br/>" = result
+  end
+
+  test "expression parsing" do
+    defmodule TestComponent do
+      import Vaux.Component
+
+      ~H"""
+        <div id={"}"}>{~s|\|}|}{"ab\"}cd"}</div>
+      """vaux
+    end
+
+    result = Vaux.render!(TestComponent)
+
+    TestHelper.unload(TestComponent)
+
+    assert "<div id=\"}\">|}ab&quot;}cd</div>" = result
   end
 end

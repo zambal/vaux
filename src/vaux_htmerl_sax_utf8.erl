@@ -213,6 +213,13 @@ plaintext(Stream, #{line_num := LineNum, nl_cp := NlCp} = State) ->
     plaintext(Rest, State1#{line_num := LineNum1}).
 
 %% Vaux expression parsing
+expr_data(<<$~, _/binary>> = Stream, #{sq := 0, dq := 0} = QuoteState, Expr, State) ->
+    case sigil_data(Stream, undefined, Expr) of
+        {Expr1, Rest1} ->
+            expr_data(Rest1, QuoteState, Expr1, State);
+        error ->
+            emit(eof, State)
+    end;
 expr_data(<<$}, Rest/binary>>,
           #{cb := 0,
             sq := 0,
@@ -241,6 +248,10 @@ expr_data(<<$}, Rest/binary>>,
     QuoteState1 = QuoteState#{cb := Cb - 1},
     Expr1 = append_to_expr($}, Curr),
     expr_data(Rest, QuoteState1, Expr1, State);
+expr_data(<<$\\, $", Rest/binary>>, QuoteState, Curr, State) ->
+    Expr1 = append_to_expr($\\, Curr),
+    Expr2 = append_to_expr($", Expr1),
+    expr_data(Rest, QuoteState, Expr2, State);
 expr_data(<<$", Rest/binary>>, #{dq := 0, sq := 0} = QuoteState, Curr, State) ->
     QuoteState1 = QuoteState#{dq := 1},
     Expr1 = append_to_expr($", Curr),
@@ -249,6 +260,10 @@ expr_data(<<$", Rest/binary>>, #{dq := 1, sq := 0} = QuoteState, Curr, State) ->
     QuoteState1 = QuoteState#{dq := 0},
     Expr1 = append_to_expr($", Curr),
     expr_data(Rest, QuoteState1, Expr1, State);
+expr_data(<<$\\, $', Rest/binary>>, QuoteState, Curr, State) ->
+    Expr1 = append_to_expr($\\, Curr),
+    Expr2 = append_to_expr($', Expr1),
+    expr_data(Rest, QuoteState, Expr2, State);
 expr_data(<<$', Rest/binary>>, #{sq := 0, dq := 0} = QuoteState, Curr, State) ->
     % handle deprecated charlist syntax
     QuoteState1 = QuoteState#{sq := 1},
@@ -265,6 +280,38 @@ expr_data(<<C, Rest/binary>>, QuoteState, Curr, State) ->
 expr_data(<<>>, _QuoteState, _Expr, State) ->
     % fatal parse error
     emit(eof, State).
+
+sigil_data(<<C, Rest/binary>>, undefined, Curr)
+    when C == $(;
+         C == ${;
+         C == $[;
+         C == $<;
+         C == $";
+         C == $';
+         C == $|;
+         C == $/ ->
+    Expr1 = append_to_expr(C, Curr),
+    ClosingChar =
+        case C of
+            $( -> $);
+            ${ -> $};
+            $[ -> $];
+            $< -> $>;
+            _ ->  C
+        end,
+    sigil_data(Rest, ClosingChar, Expr1);
+sigil_data(<<$\\, ClosingChar, Rest/binary>>, ClosingChar, Curr) ->
+    Expr1 = append_to_expr($\\, Curr),
+    Expr2 = append_to_expr(ClosingChar, Expr1),
+    sigil_data(Rest, ClosingChar, Expr2);
+sigil_data(<<ClosingChar, Rest/binary>>, ClosingChar, Curr) ->
+    {append_to_expr(ClosingChar, Curr), Rest};
+sigil_data(<<C, Rest/binary>>, ClosingChar, Curr) ->
+    Expr1 = append_to_expr(C, Curr),
+    sigil_data(Rest, ClosingChar, Expr1);
+sigil_data(<<>>, _ClosingChar, _Curr) ->
+    % fatal parse error
+    error.
 
 %% 8.2.4.6
 tag_open(<<$!, Rest/binary>>, State) ->
@@ -852,6 +899,14 @@ before_attribute_value(Stream, State) ->
     attribute_value_unquoted(Stream, State).
 
 %% Vaux expression parsing
+attribute_value_expr(<<$~, _/binary>> = Stream, #{sq := 0, dq := 0} = QuoteState, #{current_token := Curr} = State) ->
+    case sigil_data(Stream, undefined, #expr{data = <<>>}) of
+        {Expr, Rest1} ->
+            State1 = State#{current_token := append_to_att_expr(Expr, Curr)},
+            attribute_value_expr(Rest1, QuoteState, State1);
+        error ->
+            emit(eof, State)
+    end;
 attribute_value_expr(<<$}, Rest/binary>>,
                      #{cb := 0,
                        sq := 0,
@@ -1918,7 +1973,6 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
             State1 = maybe_pop_text(State),
             pop_all_to_tag(Name, State1);
         #end_tag{name = N, template = true} ->
-
             case is_open(N, State) of
                 false ->
                     State;
@@ -2321,9 +2375,7 @@ dispatch(#{insertion_mode := in_body} = State, Token) ->
                  N == <<"thead">>;
                  N == <<"tr">> ->
             dispatch(State#{insertion_mode := in_table}, Token);
-        #start_tag{name = N}
-            when N == <<"frame">>;
-                 N == <<"head">> ->
+        #start_tag{name = N} when N == <<"frame">>; N == <<"head">> ->
             State;
         #start_tag{} ->
             State1 = maybe_pop_text(State),
@@ -2950,7 +3002,7 @@ dispatch(#{insertion_mode := in_select_in_table} = State, Token) ->
                     %% XXX Reset the insertion mode appropriately.
                     dispatch(State2#{insertion_mode := in_body}, Token)
             end;
-       _ ->
+        _ ->
             State1 = dispatch(State#{insertion_mode := in_select}, Token),
             State1#{insertion_mode := in_select_in_table}
     end;
@@ -3066,22 +3118,21 @@ dispatch(#{insertion_mode := after_after_frameset} = State, _Token) ->
     State.
 
 emit(#start_tag{name = <<C, _/binary>> = N} = Tok, State) ->
-    if
-        ?upper_ascii_letter(C) orelse N == <<"component">> orelse N == <<"slot">> orelse N == <<"template">> ->
-            Tok1 = Tok#start_tag{template = true},
-            dispatch(State#{last_start_tag := Tok1}, norm_tok(Tok1));
-
-        true -> 
-            dispatch(State#{last_start_tag := Tok}, norm_tok(Tok))
+    if ?upper_ascii_letter(C)
+       orelse N == <<"component">>
+       orelse N == <<"slot">>
+       orelse N == <<"template">> ->
+           Tok1 = Tok#start_tag{template = true},
+           dispatch(State#{last_start_tag := Tok1}, norm_tok(Tok1));
+       true ->
+           dispatch(State#{last_start_tag := Tok}, norm_tok(Tok))
     end;
 emit(#end_tag{name = N} = Tok, State) ->
-    if
-        N == <<"component">> orelse N == <<"slot">> orelse N == <<"template">> ->
-            Tok1 = Tok#end_tag{template = true},
-            dispatch(State, Tok1);
-
-        true -> 
-            dispatch(State, Tok)
+    if N == <<"component">> orelse N == <<"slot">> orelse N == <<"template">> ->
+           Tok1 = Tok#end_tag{template = true},
+           dispatch(State, Tok1);
+       true ->
+           dispatch(State, Tok)
     end;
 emit(#chars{data = Data}, State) ->
     add_text_chars(Data, State);
@@ -3160,10 +3211,10 @@ append_to_att_value(C, #start_tag{attributes = [A | As]} = Curr) ->
     New = <<Old/binary, C/binary>>,
     Curr#start_tag{attributes = [A#attribute{value = New} | As]}.
 
-% append_to_att_expr(#chars{data = C}, #start_tag{attributes = [A | As]} = Curr) ->
-%     Old = unwrap_expr(A#attribute.value),
-%     New = <<Old/binary, C/binary>>,
-%     Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]};
+append_to_att_expr(#expr{data = C}, #start_tag{attributes = [A | As]} = Curr) ->
+    Old = unwrap_expr(A#attribute.value),
+    New = <<Old/binary, C/binary>>,
+    Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]};
 append_to_att_expr(C, #start_tag{attributes = [A | As]} = Curr) when is_integer(C) ->
     Old = unwrap_expr(A#attribute.value),
     New = <<Old/binary, C/utf8>>,
@@ -3226,7 +3277,6 @@ open_template_tag(#{open_elements := Els}) ->
     case lists:search(Pred, Els) of
         {value, #start_tag{name = Name}} ->
             Name;
-
         _ ->
             undefined
     end.
