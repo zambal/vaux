@@ -12,7 +12,7 @@ defmodule Vaux.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "Vaux",
-      source_url: "https://github.com/zambal/vaux",
+      source_url: @source_url,
       description: "Composable HTML for Elixir",
       docs: docs(),
       package: package()
