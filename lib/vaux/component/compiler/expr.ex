@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Compiler.Expr do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct ast: nil, dir: nil, slot_key: nil, type: nil, tag: nil, line: 0

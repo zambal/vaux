@@ -1,4 +1,6 @@
 defmodule Vaux.Schema do
+  @moduledoc false
+
   @type attr_def :: {name :: atom(), type :: atom(), opts :: keyword()}
   @type attrs_schema :: [attr_def()]
 

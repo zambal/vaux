@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Compiler.State do
+  @moduledoc false
+
   alias Vaux.Component.Compiler.{Expr, State}
 
   @type t :: %State{

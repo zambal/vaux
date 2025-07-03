@@ -1,4 +1,4 @@
-# Vaux
+# Overview
 
 ## Installation
 
@@ -14,15 +14,13 @@ end
 
 ## Introduction
 
-Vaux (rhymes with yo) provides composable html templates for Elixir. It uses a
-customized verion of the excellent html parsing library 
-[htmerl](https://hex.pm/packages/htmerl), which enables it to provide a simple, 
-but still expressive syntax tailored for working with html.
+Vaux (rhymes with yo) provides composable html templates for Elixir. It uses 
+a customized verion of the excellent html parsing library 
+[htmerl](https://hex.pm/packages/htmerl) to offer a simple, but still 
+expressive template syntax.
 
-Vaux draws inspiration from both [Phoenix components](https://hexdocs.pm/phoenix_live_view/Phoenix.Component.html) 
-and [Vue templates](https://vuejs.org/guide/essentials/template-syntax.html). It also 
-builds upon the same syntax as HEEx templates, so Vaux templates are easy to 
-work with if your editor has support for HEEx. 
+It builds upon HEEx template syntax, which means it offers good editor support 
+out of the box.
 
 A minimal example looks like this:
 
@@ -41,11 +39,14 @@ A minimal example looks like this:
   "<h1>Hello World</h1>"
 ```
 
-As you can see, Vaux uses the same sigil and template expression syntax as HEEx 
+If you are familiar with Phoenix components, a Vaux component will look pretty 
+similar, as it uses the same sigil and template expression syntax as HEEx 
 templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux 
-requires the `vaux` modifier for its `~H` sigil. In order to call another 
-component, it needs to be known at compile time. Vaux provides the `components/1` 
-macro that both requires and aliases components:
+requires the `vaux` modifier for its `~H` sigil. A key difference is that Vaux 
+only supports a single template per module.
+
+In ordder to call another component, it needs to be known at compile time. Vaux 
+provides the `components/1` macro that both requires and aliases components:
 
 ```elixir
   defmodule Component.Example2 do
@@ -217,7 +218,7 @@ directives to use:
       <!-- Loops can be expressed with the :for directive -->
       <div :for={number <- 1..@count}>{number}</div>
 
-      <!-- The element with the first truthy :cond expression gets rendered -->
+      <!-- The first element with a truthy :cond expression gets rendered -->
       <div :cond={@count >= 5}>Too many</div>
       <div :cond={@count >= 3}>Ok</div>
 
@@ -233,6 +234,8 @@ directives to use:
   iex> Vaux.render!(Component.DirectivesExample, %{"fruit" => "orange", "count" => 3})
   "<body><div><span>oranje</span></div><div>1</div><div>2</div><div>3</div><div>Ok</div></body>"
 ```
+
+#### Applying directives to multiple elements
 
 If you want to apply a directive to a list of elements, you can use the 
 `template` element as a wrapper, as it won't get rendered by default (you can 
@@ -256,10 +259,43 @@ use the `:keep` directive to keep te `template` element in the rendered output).
   "<a></a><b></b>"
 ```
 
+#### Using `:bind` and `:let` directives
+
+Vaux templates also offer `:bind` and `:let` directives. These directives make 
+it possible to bind data in a template and make it available to the consumer of 
+the component.
+
+```elixir
+     defmodule Component.BindingExample do
+       import Vaux.Component
+    
+       attr :title, :string
+    
+       ~H"""
+       <slot :bind={String.upcase(@title)}></slot>
+       """vaux  
+     end
+
+     defmodule Page.Page5 do
+       import Vaux.Component
+    
+       components Component.BindingExample
+    
+       ~H"""
+       <BindingExample title="Hello World" :let={upcased}>{upcased}</BindingExample>
+       """vaux  
+     end
+
+    iex> Vaux.render!(Page)
+    "HELLO WORLD"
+```
+
+When using named slots, the `:let` directive can be used on the named template element.
+
 
 ## Attribute validation
 
-Vaux integrates with [JSV](https://hexdocs.pm/jsv/), a modern JSON Schema 
+Vaux uses [JSV](https://hexdocs.pm/jsv/), a modern JSON Schema 
 validation library. When defining an attribute with the `attr/3` macro, most 
 JSON schema validation options can be used:
 
@@ -284,16 +320,17 @@ JSON schema validation options can be used:
 ```
 
 
-## `Vaux.Component` behaviour and `hanlde_state/1` callback
+## Vaux.Component behaviour and `handle_state/1` callback
 
-Every component implements the `Vaux.Component` behaviour. This 
-behaviour requires two functions to be implemented: `handle_state/1` and 
-`render/1`. Both receive a struct that is defined by the `sigil_H/1` macro. 
-This struct contains all defined attributes, variables and slots as fields. The 
-`handle_state/1` function allows you to preprocess atributes and setup internal 
-variables before it's passed to the `render/1` function. The `sigil_H/1` macro 
-defines `render/1` and also provides an overridable default implementation for 
-`handle_state/1`.
+Every component implements the `Vaux.Component` behaviour. This behaviour 
+requires two functions to be implemented: `handle_state/1` and `render/1`. Both 
+receive a struct that is defined by the `sigil_H/2` macro. This struct contains 
+all defined attributes, variables and slots. The `handle_state/1` function 
+allows you to preprocess atributes, setup internal variables, etc. Finally, the 
+returned struct from `handle_state/1` is passed to the `render/1` function.
+
+The `sigil_H/2` macro defines `render/1` and also provides an overridable 
+default implementation for `handle_state/1`.
 
 The main idea behind the `handle_state/1` callback is that it allows you to 
 keep most complex control flow and data transformations out of the template. 
@@ -338,7 +375,7 @@ different contexts.
 ## Root modules
 
 Vaux allows you to define root modules. These modules can be used to bundle 
-common elements that other components are able to use. 
+common elements that components are able to use. 
 
 ```elixir
   defmodule MyRoot do
@@ -352,7 +389,7 @@ common elements that other components are able to use.
     const title: "Hello World"
   end
 
-  defmodule Page.Page5 do
+  defmodule Page.Page6 do
     use MyRoot
 
     ~H"""
@@ -367,7 +404,7 @@ common elements that other components are able to use.
     """vaux
   end
   
-  iex> Vaux.render!(Page.Page5)
+  iex> Vaux.render!(Page.Page6)
   "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
 ```
 
@@ -376,5 +413,5 @@ components. These can be accessed in templates by the special `@!my_const`
 syntax. The `components/1` macro works the same as in component definitions.
 
 When at least one `const/1` or `components/1` definition is included in a root 
-module, a `__using__/1` macro is created for the root module that allows you to use 
-it in a component. 
+module, a `__using__/1` macro is created for the root module that allows it to be used 
+in a component. 

@@ -1,7 +1,36 @@
 defmodule Vaux do
+  @moduledoc """
+  Provides functions to render Vaux components to html.
+
+      iex> defmodule HelloWorld do
+      ...>   import Vaux.Component
+      ...> 
+      ...>   attr :title, :string
+      ...> 
+      ...>   ~H"<h1>{@title}</h1>"vaux
+      ...> end
+      iex> Vaux.render(HelloWorld, %{"title" => "Hello World"})
+      {:ok, "<h1>Hello World</h1>"}
+  """
   @type attributes :: %{String.t() => any()}
   @type slot_content :: iodata() | keyword(iodata()) | %{atom() => iodata()} | nil
 
+  @doc """
+  Render a component to html
+
+  Accepts a map where keys are strings as attributes and a map where keys are atoms as slots.
+
+  Returns `{:ok, iodata()}` or `{:error, Vaux.RuntimeError.t()}` when an error 
+  is encountered during rendering.
+
+  By default a string is returned, but when 
+
+      config :vaux, render_to_binary: false 
+
+  is set, an iolist is returned. Depending on the template complexity, this can 
+  give a small performance boost. Note that this config setting is evaluated at 
+  compile time.
+  """
   @spec render(component :: module(), attrs :: attributes(), slots :: slot_content()) ::
           {:ok, iodata()} | {:error, Vaux.RuntimeError.t()}
   def render(component, attrs \\ %{}, slots \\ nil) do
@@ -11,6 +40,9 @@ defmodule Vaux do
       {:error, error}
   end
 
+  @doc """
+  Same as `render/3`, but raises an `Vaux.RuntimeError` exception when an error is encountered
+  """
   @spec render!(component :: module(), attrs :: attributes(), slots :: slot_content()) :: iodata()
   def render!(component, attrs \\ %{}, slots \\ nil) do
     render!(component, attrs, normalize_slots(slots), "nofile", 0)

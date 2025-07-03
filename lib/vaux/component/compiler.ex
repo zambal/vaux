@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Compiler do
+  @moduledoc false
+
   alias Vaux.Component.Compiler.{Expr, Node, Directive, State}
 
   @dialyzer {:no_improper_lists, [html_escape: 4, html_escape: 5]}

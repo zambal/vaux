@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Compiler.Directive do
+  @moduledoc false
+
   defmacrop maybe_to_binary(expr) do
     if Application.get_env(:vaux, :render_to_binary, true) do
       quote do

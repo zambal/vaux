@@ -1,6 +1,8 @@
 alias Vaux.Component.Compiler
 
 defprotocol Vaux.Encoder do
+  @moduledoc false
+
   @spec encode(t()) :: String.t()
   def encode(value)
 end

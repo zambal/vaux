@@ -1,10 +1,13 @@
 defmodule Vaux.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/lud/jsv"
+  @version "0.3.7"
+
   def project do
     [
       app: :vaux,
-      version: "0.3.6",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -27,7 +30,19 @@ defmodule Vaux.MixProject do
   end
 
   defp docs do
-    [main: "readme", extras: ["README.md"]]
+    [
+      main: "readme",
+      extras: ["README.md"],
+      source_url: @source_url,
+      groups_for_modules: groups_for_modules()
+    ]
+  end
+
+  defp groups_for_modules do
+    [
+      Modules: [Vaux, Vaux.Component, Vaux.Root],
+      Exceptions: [~r/^Vaux\.\w+Error/]
+    ]
   end
 
   defp package do

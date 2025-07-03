@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Builder do
+  @moduledoc false
+
   @components_key :__vaux_components__
   @attrs_key :__vaux_attrs__
   @slots_key :__vaux_slots__

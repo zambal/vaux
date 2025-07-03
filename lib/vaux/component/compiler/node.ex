@@ -1,4 +1,6 @@
 defmodule Vaux.Component.Compiler.Node do
+  @moduledoc false
+
   alias __MODULE__
 
   @dialyzer {:no_return, raise_error: 2}
