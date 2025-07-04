@@ -42,10 +42,10 @@ A minimal example looks like this:
 If you are familiar with Phoenix components, a Vaux component will look pretty 
 similar, as it uses the same sigil and template expression syntax as HEEx 
 templates. To make sure HEEx and Vaux templates can't be mixed up, Vaux 
-requires the `vaux` modifier for its `~H` sigil. A key difference is that Vaux 
-only supports a single template per module.
+requires the `vaux` modifier for its `~H` sigil. A key difference is that Vaux, 
+at least at the moment, only supports a single template per module.
 
-In ordder to call another component, it needs to be known at compile time. Vaux 
+In order to call another component, it needs to be known at compile time. Vaux 
 provides the `components/1` macro that both requires and aliases components:
 
 ```elixir
@@ -312,8 +312,8 @@ JSON schema validation options can be used:
     attr :numbers2, {:array, :integer}
 
     # Shorthand notation for objects is available too
-    attr :person1, :object, properties: %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
-    attr :person2, %{name: {:string, pattern: ~r/\w+\s+\w+/}, age: :integer}
+    attr :person1, :object, properties: %{name: {:string, pattern: "\w+\s+\w+"}, age: :integer}
+    attr :person2, %{name: {:string, pattern: "\w+\s+\w+"}, age: :integer}
 
     ~H""vaux
   end

@@ -2,7 +2,7 @@ defmodule Vaux.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/zambal/vaux"
-  @version "0.3.7"
+  @version "0.3.8"
 
   def project do
     [
@@ -34,6 +34,7 @@ defmodule Vaux.MixProject do
       main: "readme",
       extras: ["README.md"],
       source_url: @source_url,
+      source_ref: "v#{@version}",
       groups_for_modules: groups_for_modules()
     ]
   end
