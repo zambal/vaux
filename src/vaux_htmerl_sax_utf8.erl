@@ -127,11 +127,7 @@ data(<<$&, Rest/binary>>, State) ->
 data(<<$<, Rest/binary>>, State) ->
     tag_open(Rest, State);
 data(<<${, Rest/binary>>, State) ->
-    expr_data(Rest,
-              #{cb => 0,
-                sq => 0,
-                dq => 0},
-              #expr{data = <<>>},
+    expr_data(Rest, 0, #expr{data = <<>>},
               State);
 data(<<>>, State) ->
     emit(eof, State);
@@ -213,67 +209,41 @@ plaintext(Stream, #{line_num := LineNum, nl_cp := NlCp} = State) ->
     plaintext(Rest, State1#{line_num := LineNum1}).
 
 %% Vaux expression parsing
-expr_data(<<$~, _/binary>> = Stream, #{sq := 0, dq := 0} = QuoteState, Expr, State) ->
+expr_data(<<$}, Rest/binary>>, 0, Expr, State) ->
+    State1 = emit(Expr, State),
+    data(Rest, State1);
+expr_data(<<${, Rest/binary>>, Cbs, Curr, State) ->
+    Cbs1 = Cbs + 1,
+    Expr1 = append_to_expr(${, Curr),
+    expr_data(Rest, Cbs1, Expr1, State);
+expr_data(<<$}, Rest/binary>>, Cbs, Curr, State) ->
+    Cbs1 = Cbs - 1,
+    Expr1 = append_to_expr($}, Curr),
+    expr_data(Rest, Cbs1, Expr1, State);
+expr_data(<<$~, _/binary>> = Stream, Cbs, Expr, State) ->
     case sigil_data(Stream, undefined, Expr) of
         {Expr1, Rest1} ->
-            expr_data(Rest1, QuoteState, Expr1, State);
+            expr_data(Rest1, Cbs, Expr1, State);
         error ->
             emit(eof, State)
     end;
-expr_data(<<$}, Rest/binary>>,
-          #{cb := 0,
-            sq := 0,
-            dq := 0},
-          Expr,
-          State) ->
-    State1 = emit(Expr, State),
-    data(Rest, State1);
-expr_data(<<${, Rest/binary>>,
-          #{cb := Cb,
-            sq := 0,
-            dq := 0} =
-              QuoteState,
-          Curr,
-          State) ->
-    QuoteState1 = QuoteState#{cb := Cb + 1},
-    Expr1 = append_to_expr(${, Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
-expr_data(<<$}, Rest/binary>>,
-          #{cb := Cb,
-            sq := 0,
-            dq := 0} =
-              QuoteState,
-          Curr,
-          State) ->
-    QuoteState1 = QuoteState#{cb := Cb - 1},
-    Expr1 = append_to_expr($}, Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
-expr_data(<<$\\, $", Rest/binary>>, QuoteState, Curr, State) ->
-    Expr1 = append_to_expr($\\, Curr),
-    Expr2 = append_to_expr($", Expr1),
-    expr_data(Rest, QuoteState, Expr2, State);
-expr_data(<<$", Rest/binary>>, #{dq := 0, sq := 0} = QuoteState, Curr, State) ->
-    QuoteState1 = QuoteState#{dq := 1},
+expr_data(<<$", Rest/binary>>, Cbs, Curr, State) ->
     Expr1 = append_to_expr($", Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
-expr_data(<<$", Rest/binary>>, #{dq := 1, sq := 0} = QuoteState, Curr, State) ->
-    QuoteState1 = QuoteState#{dq := 0},
-    Expr1 = append_to_expr($", Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
-expr_data(<<$\\, $', Rest/binary>>, QuoteState, Curr, State) ->
-    Expr1 = append_to_expr($\\, Curr),
-    Expr2 = append_to_expr($', Expr1),
-    expr_data(Rest, QuoteState, Expr2, State);
-expr_data(<<$', Rest/binary>>, #{sq := 0, dq := 0} = QuoteState, Curr, State) ->
+    case quote_data(Rest, $", Expr1) of
+        {Expr2, Rest1} ->
+            expr_data(Rest1, Cbs, Expr2, State);
+        error ->
+            emit(eof, State)
+    end;
+expr_data(<<$', Rest/binary>>, Cbs, Curr, State) ->
     % handle deprecated charlist syntax
-    QuoteState1 = QuoteState#{sq := 1},
     Expr1 = append_to_expr($', Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
-expr_data(<<$', Rest/binary>>, #{sq := 1, dq := 0} = QuoteState, Curr, State) ->
-    % handle deprecated charlist syntax
-    QuoteState1 = QuoteState#{sq := 0},
-    Expr1 = append_to_expr($', Curr),
-    expr_data(Rest, QuoteState1, Expr1, State);
+    case quote_data(Rest, $', Expr1) of
+        {Expr2, Rest1} ->
+            expr_data(Rest1, Cbs, Expr2, State);
+        error ->
+            emit(eof, State)
+    end;
 expr_data(<<C, Rest/binary>>, QuoteState, Curr, State) ->
     Expr1 = append_to_expr(C, Curr),
     expr_data(Rest, QuoteState, Expr1, State);
@@ -310,6 +280,19 @@ sigil_data(<<C, Rest/binary>>, ClosingChar, Curr) ->
     Expr1 = append_to_expr(C, Curr),
     sigil_data(Rest, ClosingChar, Expr1);
 sigil_data(<<>>, _ClosingChar, _Curr) ->
+    % fatal parse error
+    error.
+
+quote_data(<<$\\, QuoteChar, Rest/binary>>, QuoteChar, Curr) ->
+    Expr1 = append_to_expr($\\, Curr),
+    Expr2 = append_to_expr(QuoteChar, Expr1),
+    quote_data(Rest, QuoteChar, Expr2);
+quote_data(<<QuoteChar, Rest/binary>>, QuoteChar, Curr) ->
+    {append_to_expr(QuoteChar, Curr), Rest};
+quote_data(<<C, Rest/binary>>, QuoteChar, Curr) ->
+    Expr1 = append_to_expr(C, Curr),
+    quote_data(Rest, QuoteChar, Expr1);
+quote_data(<<>>, _ClosingChar, _Curr) ->
     % fatal parse error
     error.
 
@@ -883,11 +866,7 @@ before_attribute_value(<<$\n, Rest/binary>>, State) ->
 before_attribute_value(<<C, Rest/binary>>, State) when ?ws(C) ->
     before_attribute_value(Rest, State);
 before_attribute_value(<<${, Rest/binary>>, State) ->
-    attribute_value_expr(Rest,
-                         #{cb => 0,
-                           sq => 0,
-                           dq => 0},
-                         State);
+    attribute_value_expr(Rest, 0, State);
 before_attribute_value(<<$", Rest/binary>>, State) ->
     attribute_value_double_quoted(Rest, State);
 before_attribute_value(<<$', Rest/binary>>, State) ->
@@ -899,68 +878,47 @@ before_attribute_value(Stream, State) ->
     attribute_value_unquoted(Stream, State).
 
 %% Vaux expression parsing
-attribute_value_expr(<<$~, _/binary>> = Stream, #{sq := 0, dq := 0} = QuoteState, #{current_token := Curr} = State) ->
+attribute_value_expr(<<$}, Rest/binary>>, 0, State) ->
+    after_attribute_value_quoted(Rest, State);
+attribute_value_expr(<<${, Rest/binary>>, Cbs, #{current_token := Curr} = State) ->
+    Cbs1 = Cbs + 1,
+    State1 = State#{current_token := append_to_expr(${, Curr)},
+    attribute_value_expr(Rest, Cbs1, State1);
+attribute_value_expr(<<$}, Rest/binary>>, Cbs, #{current_token := Curr} = State) ->
+    Cbs1 = Cbs - 1,
+    State1 = State#{current_token := append_to_expr($}, Curr)},
+    attribute_value_expr(Rest, Cbs1, State1);
+attribute_value_expr(<<$~, _/binary>> = Stream, Cbs, #{current_token := Curr} = State) ->
     case sigil_data(Stream, undefined, #expr{data = <<>>}) of
         {Expr, Rest1} ->
-            State1 = State#{current_token := append_to_att_expr(Expr, Curr)},
-            attribute_value_expr(Rest1, QuoteState, State1);
+            State1 = State#{current_token := append_to_expr(Expr, Curr)},
+            attribute_value_expr(Rest1, Cbs, State1);
         error ->
             emit(eof, State)
     end;
-attribute_value_expr(<<$}, Rest/binary>>,
-                     #{cb := 0,
-                       sq := 0,
-                       dq := 0},
-                     State) ->
-    after_attribute_value_quoted(Rest, State);
-attribute_value_expr(<<${, Rest/binary>>,
-                     #{cb := Cb,
-                       sq := 0,
-                       dq := 0} =
-                         QuoteState,
-                     #{current_token := Curr} = State) ->
-    QuoteState1 = QuoteState#{cb := Cb + 1},
-    State1 = State#{current_token := append_to_att_expr(${, Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<$}, Rest/binary>>,
-                     #{cb := Cb,
-                       sq := 0,
-                       dq := 0} =
-                         QuoteState,
-                     #{current_token := Curr} = State) ->
-    QuoteState1 = QuoteState#{cb := Cb - 1},
-    State1 = State#{current_token := append_to_att_expr($}, Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<$", Rest/binary>>,
-                     #{dq := 0, sq := 0} = QuoteState,
-                     #{current_token := Curr} = State) ->
-    QuoteState1 = QuoteState#{dq := 1},
-    State1 = State#{current_token := append_to_att_expr($", Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<$", Rest/binary>>,
-                     #{dq := 1, sq := 0} = QuoteState,
-                     #{current_token := Curr} = State) ->
-    QuoteState1 = QuoteState#{dq := 0},
-    State1 = State#{current_token := append_to_att_expr($", Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<$', Rest/binary>>,
-                     #{sq := 0, dq := 0} = QuoteState,
-                     #{current_token := Curr} = State) ->
+attribute_value_expr(<<$", Rest/binary>>, Cbs, #{current_token := Curr} = State) ->
+    Expr1 = append_to_expr($", Curr),
+    case quote_data(Rest, $", Expr1) of
+        {Expr2, Rest1} ->
+            State1 = State#{current_token := Expr2},
+            attribute_value_expr(Rest1, Cbs, State1);
+        error ->
+            emit(eof, State)
+    end;
+attribute_value_expr(<<$', Rest/binary>>, Cbs, #{current_token := Curr} = State) ->
     % handle deprecated charlist syntax
-    QuoteState1 = QuoteState#{sq := 1},
-    State1 = State#{current_token := append_to_att_expr($', Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<$', Rest/binary>>,
-                     #{sq := 1, dq := 0} = QuoteState,
-                     #{current_token := Curr} = State) ->
-    % handle deprecated charlist syntax
-    QuoteState1 = QuoteState#{sq := 0},
-    State1 = State#{current_token := append_to_att_expr($', Curr)},
-    attribute_value_expr(Rest, QuoteState1, State1);
-attribute_value_expr(<<C, Rest/binary>>, QuoteState, #{current_token := Curr} = State) ->
-    State1 = State#{current_token := append_to_att_expr(C, Curr)},
-    attribute_value_expr(Rest, QuoteState, State1);
-attribute_value_expr(<<>>, _QuoteState, State) ->
+    Expr1 = append_to_expr($', Curr),
+    case quote_data(Rest, $', Expr1) of
+        {Expr2, Rest1} ->
+            State1 = State#{current_token := Expr2},
+            attribute_value_expr(Rest1, Cbs, State1);
+        error ->
+            emit(eof, State)
+    end;
+attribute_value_expr(<<C, Rest/binary>>, Cbs, #{current_token := Curr} = State) ->
+    State1 = State#{current_token := append_to_expr(C, Curr)},
+    attribute_value_expr(Rest, Cbs, State1);
+attribute_value_expr(<<>>, _Cbs, State) ->
     % fatal parse error
     emit(eof, State).
 
@@ -3193,7 +3151,15 @@ append_to_value(C, #comment{data = V} = A) when is_binary(C) ->
     A#comment{data = <<V/binary, C/binary>>}.
 
 append_to_expr(C, #expr{data = V} = E) when is_integer(C) ->
-    E#expr{data = <<V/binary, C/utf8>>}.
+    E#expr{data = <<V/binary, C/utf8>>};
+append_to_expr(C, #start_tag{attributes = [A | As]} = Curr) when is_integer(C) ->
+    Old = unwrap_expr(A#attribute.value),
+    New = <<Old/binary, C/utf8>>,
+    Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]};
+append_to_expr(#expr{data = C}, #start_tag{attributes = [A | As]} = Curr) ->
+    Old = unwrap_expr(A#attribute.value),
+    New = <<Old/binary, C/binary>>,
+    Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]}.
 
 % append_to_expr(C, #expr{data = V} = E) when is_binary(C) ->
 %     E#expr{data = <<V/binary, C/binary>>}.
@@ -3210,15 +3176,6 @@ append_to_att_value(C, #start_tag{attributes = [A | As]} = Curr) ->
     Old = A#attribute.value,
     New = <<Old/binary, C/binary>>,
     Curr#start_tag{attributes = [A#attribute{value = New} | As]}.
-
-append_to_att_expr(#expr{data = C}, #start_tag{attributes = [A | As]} = Curr) ->
-    Old = unwrap_expr(A#attribute.value),
-    New = <<Old/binary, C/binary>>,
-    Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]};
-append_to_att_expr(C, #start_tag{attributes = [A | As]} = Curr) when is_integer(C) ->
-    Old = unwrap_expr(A#attribute.value),
-    New = <<Old/binary, C/utf8>>,
-    Curr#start_tag{attributes = [A#attribute{value = {expr, New}} | As]}.
 
 % append_to_att_expr(C, #start_tag{attributes = [A | As]} = Curr) ->
 %     Old = unwrap_expr(A#attribute.value),
