@@ -294,7 +294,11 @@ defmodule Vaux.Component do
   `@!constant` can be used. Note that Vaux templates require `vaux` as sigil 
   modifier in order to distinguish them from HEEx templates.
 
-      ~H"<h1>{@title}</h1>"vaux
+      ~H"<h1>{String.capitalize(@title)}</h1>"vaux
+
+  Only variable interpolations are allowed inside `script` and `style` tags. 
+  These are exressions in the form of `{@field}` or `{@!const}`. `{1 + @field}` is not valid 
+  variable interpolation for example.
 
   An extensive set of directives is available for expressing control flow, 
   iteration, template bindings and visibility within templates. Available control 

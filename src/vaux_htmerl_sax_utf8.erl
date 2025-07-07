@@ -114,7 +114,7 @@ default_state() ->
       data_stop => binary:compile_pattern([<<$&>>, <<$<>>, <<${>>]),
       att_dq_stop => binary:compile_pattern([<<$\">>, <<$&>>, <<0>>]),
       att_sq_stop => binary:compile_pattern([<<$'>>, <<$&>>, <<0>>]),
-      rawtext_stop => binary:compile_pattern([<<$<>>, <<0>>]),
+      rawtext_stop => binary:compile_pattern([<<$<>>, <<0>>, <<${, $@>>]),
       nl_cp => binary:compile_pattern([<<$\n>>])}.
 
 %% ====================================================================
@@ -161,6 +161,15 @@ rcdata(Stream, #{line_num := LineNum, nl_cp := NlCp} = State) ->
 %% 8.2.4.3
 rawtext(<<$<, Rest/binary>>, State) ->
     rawtext_less_than_sign(Rest, State);
+rawtext(<<${, $@, Rest/binary>>,  State) ->
+    case assign_data(Rest, #expr{data = <<$@>>}) of
+        {Expr, Rest1} ->
+            State1 = emit(Expr, State),
+            rawtext(Rest1, State1);
+
+        error ->
+            emit(eof, State)
+    end;
 rawtext(<<0, Rest/binary>>, State) ->
     % parse error
     State1 = emit(#char{data = 16#FFFD}, State),
@@ -180,6 +189,15 @@ rawtext(Stream,
 %% 8.2.4.4
 script_data(<<$<, Rest/binary>>, State) ->
     script_data_less_than_sign(Rest, State);
+script_data(<<${, $@, Rest/binary>>,  State) ->
+    case assign_data(Rest, #expr{data = <<$@>>}) of
+        {Expr, Rest1} ->
+            State1 = emit(Expr, State),
+            script_data(Rest1, State1);
+
+        error ->
+            emit(eof, State)
+    end;
 script_data(<<0, Rest/binary>>, State) ->
     State1 = emit(#char{data = 16#FFFD}, State),
     script_data(Rest, State1);
@@ -209,6 +227,16 @@ plaintext(Stream, #{line_num := LineNum, nl_cp := NlCp} = State) ->
     plaintext(Rest, State1#{line_num := LineNum1}).
 
 %% Vaux expression parsing
+assign_data(<<$}, Rest/binary>>, Expr) ->
+    {Expr, Rest};
+assign_data(<<C, Rest/binary>>, Expr) ->
+    Expr1 = append_to_expr(C, Expr),
+    assign_data(Rest, Expr1);
+assign_data(<<>>, _Curr) ->
+    % fatal parse error
+    error.
+
+
 expr_data(<<$}, Rest/binary>>, 0, Expr, State) ->
     State1 = emit(Expr, State),
     data(Rest, State1);
@@ -1794,7 +1822,7 @@ dispatch(#{insertion_mode := before_html, fragment_mode := FMode} = State, Token
         #char{data = C} when ?ws(C) ->
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
@@ -1842,7 +1870,7 @@ dispatch(#{insertion_mode := before_head, fragment_mode := FMode} = State, Token
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{template = true} ->
             State1 = maybe_pop_text(State),
@@ -1887,7 +1915,7 @@ dispatch(#{insertion_mode := in_head} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
@@ -1972,7 +2000,7 @@ dispatch(#{insertion_mode := after_head, fragment_mode := FMode} = State, Token)
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
@@ -2032,7 +2060,7 @@ dispatch(#{insertion_mode := in_body} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{name = Name}
             when Name == <<"html">>; Name == <<"body">>; Name == <<"frameset">> ->
@@ -2368,7 +2396,7 @@ dispatch(#{insertion_mode := text} = State, Token) ->
         #char{data = C} ->
             add_text_char(C, State);
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         _ ->
             #{orig_insertion_mode := Orig} = State,
@@ -2486,7 +2514,7 @@ dispatch(#{insertion_mode := in_table_text} = State, Token) ->
         #char{data = C} ->
             add_text_char(C, State);
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         _ ->
             #{orig_insertion_mode := Orig} = State1 = maybe_pop_text(State),
@@ -2561,7 +2589,7 @@ dispatch(#{insertion_mode := in_column_group} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{name = <<"slot">>} ->
             State1 = maybe_pop_text(State),
@@ -2822,7 +2850,7 @@ dispatch(#{insertion_mode := in_select} = State, Token) ->
             % parse error
             State;
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #start_tag{name = <<"html">>} ->
             State1 = maybe_pop_text(State),
@@ -3036,7 +3064,7 @@ dispatch(#{insertion_mode := after_body} = State, Token) ->
             State1 = maybe_pop_text(State),
             send_event({comment, Comment}, State1);
         #expr{data = Expr} ->
-            State1 = maybe_pop_text(State),
+            State1 = maybe_pop_text(State, true),
             send_event({expr, Expr}, State1);
         #doctype{} ->
             % parse error
@@ -3358,25 +3386,33 @@ add_text_chars(C, #{text_node_buff := undefined} = State) ->
 add_text_chars(C, #{text_node_buff := Buff} = State) ->
     State#{text_node_buff := <<Buff/binary, C/binary>>}.
 
-maybe_pop_text(#{text_node_buff := undefined} = State) ->
+maybe_pop_text(State) ->
+    maybe_pop_text(State, false).
+
+maybe_pop_text(#{text_node_buff := undefined} = State, _ExprConcat) ->
     State;
-maybe_pop_text(#{text_node_buff := Buff} = State) ->
-    TestFun =
-        fun(X) ->
-           {start_tag, Y, _, _, _} = X,
-           Y =:= <<"pre">>
+maybe_pop_text(#{text_node_buff := Buff} = State, false) ->
+    Keep = lists:any(fun keep_whitespace_test/1, maps:get(open_elements, State)),
+    Buff1 = if Keep -> Buff; true -> norm_whitespaces(Buff) end,
+    Event = {characters, u(Buff1)},
+    State1 = send_event(Event, State),
+    State1#{text_node_buff := undefined};
+maybe_pop_text(#{text_node_buff := Buff} = State, true) ->
+    Keep = lists:any(fun keep_whitespace_test/1, maps:get(open_elements, State)),
+    Buff1 = if Keep -> Buff; true -> norm_whitespaces(Buff) end,
+    Buff2 =
+        case {binary:last(Buff), Buff1} of
+            {_, <<>>} -> Buff1;
+            {$\s, _} -> <<Buff1/binary, $\s>>;
+            _ -> Buff1
         end,
-    HasPre = lists:any(TestFun, maps:get(open_elements, State)),
-    if HasPre ->
-           Event = {characters, u(Buff)},
-           State1 = send_event(Event, State),
-           State1#{text_node_buff := undefined};
-       true ->
-           Buff1 = norm_whitespaces(Buff),
-           Event = {characters, u(Buff1)},
-           State1 = send_event(Event, State),
-           State1#{text_node_buff := undefined}
-    end.
+    Event = {characters, u(Buff2)},
+    State1 = send_event(Event, State),
+    State1#{text_node_buff := undefined}.
+
+keep_whitespace_test(X) ->
+    {start_tag, Y, _, _, _} = X,
+    Y =:= <<"pre">>.
 
 add_html_element(#start_tag{name = N,
                             attributes = Atts,

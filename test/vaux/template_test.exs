@@ -128,4 +128,37 @@ defmodule VauxTest.Template do
 
     assert "<div id=\"}\">|}ab&quot;}cd</div>" = result
   end
+
+  test "assigns in script and style tags" do
+    defmodule TestComponent do
+      import Vaux.Component
+
+      attr :number, :integer, default: 42
+
+      ~H"""
+        <h1>
+          {@number}
+        </h1>
+        <script>
+          var a = {1 + 1};
+          var b = {@number};
+          var c = 303;
+        </script>
+        <style>
+        .test {
+          max-height: {@number}px;
+        }
+        </style>
+      """vaux
+    end
+
+    result = Vaux.render!(TestComponent)
+
+    TestHelper.unload(TestComponent)
+
+    expected =
+      "<h1>42</h1><script>var a = {1 + 1}; var b = 42; var c = 303;</script><style>.test { max-height: 42px; }</style>"
+
+    assert expected == result
+  end
 end
