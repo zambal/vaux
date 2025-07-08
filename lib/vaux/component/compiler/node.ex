@@ -8,6 +8,8 @@ defmodule Vaux.Component.Compiler.Node do
 
   @directive_attrs ~w(:for :cond :if :else :case :clause :bind :let :keep)
 
+  @void_elements ~w(area base br col embed hr img input link meta source track wbr)
+
   @type directive :: :":for" | :":cond" | :":if" | :":else" | :":case" | :":clause"
   @type attrs :: [{String.t(), String.t() | Macro.t()}]
   @type line :: non_neg_integer()
@@ -21,6 +23,7 @@ defmodule Vaux.Component.Compiler.Node do
           dir: nil | {directive(), String.t()},
           binding: Macro.t() | nil,
           attrs: attrs(),
+          global_attrs: boolean(),
           content: [t()] | String.t(),
           parent: t(),
           keep: boolean(),
@@ -33,6 +36,7 @@ defmodule Vaux.Component.Compiler.Node do
             dir: nil,
             binding: nil,
             attrs: [],
+            global_attrs: false,
             content: [],
             parent: nil,
             keep: true,
@@ -140,4 +144,114 @@ defmodule Vaux.Component.Compiler.Node do
   defp raise_error(%Node{env: {file, _}, line: line}, description) do
     raise Vaux.CompileError, file: file, line: line, description: description
   end
+
+  def void_element?(tag) when tag in @void_elements, do: true
+  def void_element?(_tag), do: false
+
+  # Extracted from https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes
+  global_attributes = ~w(
+    onabort
+    onautocomplete
+    onautocompleteerror
+    onblur
+    oncancel
+    oncanplay
+    oncanplaythrough
+    onchange
+    onclick
+    onclose
+    oncontextmenu
+    oncuechange
+    ondblclick
+    ondrag
+    ondragend
+    ondragenter
+    ondragleave
+    ondragover
+    ondragstart
+    ondrop
+    ondurationchange
+    onemptied
+    onended
+    onerror
+    onfocus
+    oninput
+    oninvalid
+    onkeydown
+    onkeypress
+    onkeyup
+    onload
+    onloadeddata
+    onloadedmetadata
+    onloadstart
+    onmousedown
+    onmouseenter
+    onmouseleave
+    onmousemove
+    onmouseout
+    onmouseover
+    onmouseup
+    onmousewheel
+    onpause
+    onplay
+    onplaying
+    onprogress
+    onratechange
+    onreset
+    onresize
+    onscroll
+    onseeked
+    onseeking
+    onselect
+    onshow
+    onsort
+    onstalled
+    onsubmit
+    onsuspend
+    ontimeupdate
+    ontoggle
+    onvolumechange
+    onwaiting
+    accesskey
+    anchor
+    autocapitalize
+    autocorrect
+    autofocus
+    class
+    contenteditable
+    dir
+    draggable
+    enterkeyhint
+    exportparts
+    hidden
+    id
+    inert
+    inputmode
+    is
+    itemid
+    itemprop
+    itemref
+    itemscope
+    itemtype
+    lang
+    nonce
+    part
+    popover
+    role
+    slot
+    spellcheck
+    style
+    tabindex
+    title
+    translate
+    virtualkeyboardpolicy Experimental
+    writingsuggestions
+  )
+
+  for attr <- global_attributes do
+    def global_attribute?(unquote(attr)), do: true
+  end
+
+  def global_attribute?("data-" <> _rest), do: true
+  def global_attribute?(_name), do: false
 end

@@ -1,5 +1,5 @@
 # Used by "mix format"
-export_locals_without_parens = [attr: 1, attr: 2, attr: 3, slot: 1, var: 1, const: 1, components: 1]
+export_locals_without_parens = [attr: 1, attr: 2, attr: 3, slot: 1, var: 1, const: 1, components: 1, globals: 1]
 
 [
   line_length: 120,

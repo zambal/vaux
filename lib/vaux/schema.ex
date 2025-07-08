@@ -234,7 +234,7 @@ defmodule Vaux.Schema do
   end
 
   def to_struct_def(attrs_schema, vars, slots) do
-    fields = Enum.reduce(slots, [{:__slot__, nil}], &[{&1, nil} | &2])
+    fields = Enum.reduce(slots, [{:__slot__, nil}, {:__globals__, quote(do: %{})}], &[{&1, nil} | &2])
     fields = Enum.reduce(vars, fields, fn {name, var, _line}, acc -> [{name, var} | acc] end)
 
     Enum.reduce(attrs_schema, {fields, []}, fn {name, prop_def, req}, {names, reqs} ->
@@ -248,7 +248,7 @@ defmodule Vaux.Schema do
 
   @spec check_assigns([atom()], [{atom(), term()}]) :: [atom()]
   def check_assigns(assigns, names) do
-    names = Enum.map(names, fn {n, _d} -> n end)
+    names = for {name, _} <- names, name not in [:__slot__, :__globals__], do: name
 
     Enum.reduce(assigns, names, fn name, names ->
       List.delete(names, name)

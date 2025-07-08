@@ -10,8 +10,6 @@ defmodule Vaux.Component.Compiler do
 
   @type result :: Macro.t() | [binary() | result()]
 
-  @void_elements ~w(area base br col embed hr img input link meta source track wbr)
-
   defmacrop maybe_to_binary(expr) do
     if Application.get_env(:vaux, :render_to_binary, true) do
       quote do
@@ -24,8 +22,10 @@ defmodule Vaux.Component.Compiler do
     end
   end
 
-  @spec compile(String.t(), Macro.Env.t()) :: {result(), [atom()]}
-  def compile(string, env \\ %Macro.Env{}) do
+  @spec compile(String.t(), Keyword.t()) :: {result(), [atom()]}
+  def compile(string, opts \\ []) do
+    env = Keyword.get(opts, :env, %Macro.Env{})
+    globals? = Keyword.get(opts, :inject_globals, false)
     string = String.trim(string)
 
     {:ok, root, _} =
@@ -34,6 +34,8 @@ defmodule Vaux.Component.Compiler do
         event_fun: &handle_event/3,
         fragment_mode: true
       )
+
+    root = maybe_inject_globals(root, env, globals?)
 
     case compile_node(%State{env: env}, root) do
       %State{stack: [], acc: result, assigns_used: assigns} ->
@@ -59,6 +61,32 @@ defmodule Vaux.Component.Compiler do
   defp to_binary_parts([]), do: []
   defp to_binary_parts(bin), do: [quote(do: unquote(bin) :: binary)]
 
+  @doc false
+  def extract_globals(component, attrs) do
+    fun =
+      case component.__vaux__(:globals) do
+        false ->
+          fn _ -> false end
+
+        true ->
+          fn {name, _} ->
+            name not in component.__vaux__(:fields) and Node.global_attribute?(name)
+          end
+
+        {:only, names} ->
+          fn {name, _} ->
+            name in names and name not in component.__vaux__(:fields) and Node.global_attribute?(name)
+          end
+
+        {:except, names} ->
+          fn {name, _} ->
+            name not in names and name not in component.__vaux__(:fields) and Node.global_attribute?(name)
+          end
+      end
+
+    Enum.split_with(attrs, fun)
+  end
+
   defp handle_event({:characters, ""}, _line, node) do
     node
   end
@@ -82,6 +110,26 @@ defmodule Vaux.Component.Compiler do
   end
 
   defp handle_event(_event, _line, node) do
+    node
+  end
+
+  defp maybe_inject_globals(%Node{content: [%Node{type: type} = globals_node | rest]} = node, _env, true)
+       when type in [:element, :component] do
+    %{node | content: [%{globals_node | global_attrs: true} | rest]}
+  end
+
+  defp maybe_inject_globals(node, env, globals?) do
+    if globals? do
+      description = "Global attributes can only be used if the template starts with an element or component"
+
+      IO.warn(description,
+        file: env.file,
+        line: env.line,
+        module: env.module,
+        function: {:render, 2}
+      )
+    end
+
     node
   end
 
@@ -271,35 +319,23 @@ defmodule Vaux.Component.Compiler do
     |> State.push_stack(expr)
   end
 
-  defp push_node(state, %Node{tag: tag} = node) when tag in @void_elements do
-    # TODO: This error currently will never be raised, because htmlerl always self close void elements.
-    # This results in confusing behaviour when trying to put content inside void elements 
-    if node.content not in [nil, []] do
-      raise_error(node, "content in void elements is not allowed")
-    end
-
-    temp_state =
-      state
-      |> State.new()
-      |> State.concat("/>")
-      |> compile_attributes(node.attrs, node)
-      |> State.concat("<" <> node.tag)
-
-    expr = Expr.new(temp_state.acc, node.tag, node.dir, nil, node.line)
-
-    state
-    |> State.merge_assigns_used(temp_state)
-    |> State.push_stack(expr)
-  end
-
   defp push_node(state, node) do
     temp_state =
-      state
-      |> State.new()
-      |> State.concat("</" <> node.tag <> ">")
-      |> compile_content(node.content)
-      |> State.concat(">")
-      |> compile_attributes(node.attrs, node)
+      if Node.void_element?(node.tag) do
+        # TODO: This error currently will never be raised, because htmlerl always self close void elements.
+        # This results in confusing behaviour when trying to put content inside void elements 
+        if node.content not in [nil, []] do
+          raise_error(node, "content in void elements is not allowed")
+        end
+
+        State.new(state) |> State.concat("/>")
+      else
+        State.new(state) |> State.concat("</" <> node.tag <> ">") |> compile_content(node.content) |> State.concat(">")
+      end
+
+    temp_state =
+      temp_state
+      |> compile_attributes(node)
       |> State.concat("<" <> node.tag)
 
     expr = Expr.new(temp_state.acc, node.tag, node.dir, nil, node.line)
@@ -448,6 +484,16 @@ defmodule Vaux.Component.Compiler do
     %{state | acc: maybe_to_binary(acc)}
   end
 
+  defp compile_attributes(state, %Node{global_attrs: true} = node) do
+    {globals, attrs} = Enum.split_with(node.attrs, fn {name, _} -> Node.global_attribute?(name) end)
+
+    state |> compile_attributes(attrs, node) |> compile_globals(globals, node)
+  end
+
+  defp compile_attributes(state, %Node{global_attrs: false} = node) do
+    compile_attributes(state, node.attrs, node)
+  end
+
   defp compile_attributes(state, [{name, value} | rest], %Node{env: {file, _}, line: line} = node) do
     state |> compile_attribute(name, value, file, line) |> compile_attributes(rest, node)
   end
@@ -488,6 +534,27 @@ defmodule Vaux.Component.Compiler do
       end)
 
     {:lists.reverse(attrs), state}
+  end
+
+  defp compile_globals(state, globals, node) do
+    quoted =
+      quote line: node.line do
+        globals =
+          Map.merge(unquote({:%{}, [], globals}), var!(state).__globals__, fn
+            "class", v1, v2 -> v1 <> " " <> v2
+            _, _v1, v2 -> v2
+          end)
+
+        Enum.reduce(globals, "", fn {name, value}, acc ->
+          if value do
+            " " <> name <> "=\"" <> Vaux.Encoder.encode(value) <> "\"" <> acc
+          else
+            acc
+          end
+        end)
+      end
+
+    State.concat(state, quoted)
   end
 
   defp inject_case(content, expr_string) do
@@ -577,36 +644,43 @@ defmodule Vaux.Component.Compiler do
         raise_error(state.env.file, line, description)
 
       mod ->
-        case validate_attrs(mod, attrs) do
-          :ok ->
-            quote line: line do
-              Vaux.render!(
-                unquote(mod),
-                unquote({:%{}, [], attrs}),
-                unquote({:%{}, [], slots}),
-                unquote(state.env.file),
-                unquote(line)
-              )
-            end
+        {attrs, globals} =
+          case validate_attrs(mod, attrs) do
+            {:ok, attrs, globals} ->
+              {attrs, globals}
 
-          {:error, description} ->
-            IO.warn(description,
-              file: state.env.file,
-              line: line,
-              module: state.env.module,
-              function: {:render, 2}
-            )
+            {description, attrs, globals} ->
+              IO.warn(description,
+                file: state.env.file,
+                line: line,
+                module: state.env.module,
+                function: {:render, 2}
+              )
+
+              {attrs, globals}
+          end
+
+        quote line: line do
+          Vaux.render!(
+            unquote(mod),
+            unquote({:%{}, [], attrs}),
+            unquote({:%{}, [], globals}),
+            unquote({:%{}, [], slots}),
+            unquote(state.env.file),
+            unquote(line)
+          )
         end
     end
   end
 
   defp validate_attrs(component, attrs) do
+    {globals, attrs} = extract_globals(component, attrs)
     fields = component.__vaux__(:fields)
     required = component.__vaux__(:required)
 
     case validate_attrs(attrs, fields, required, []) do
       {[], []} ->
-        :ok
+        {:ok, attrs, globals}
 
       {required, invalid} ->
         errors =
@@ -614,8 +688,8 @@ defmodule Vaux.Component.Compiler do
              Enum.map(invalid, &"\n\t- invalid attribute `#{&1}`"))
           |> Enum.join()
 
-        description = "valdation error in component call:\n" <> errors <> "\n"
-        {:error, description}
+        description = "component compile time validation errors:\n" <> errors <> "\n"
+        {description, attrs, globals}
     end
   end
 

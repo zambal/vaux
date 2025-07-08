@@ -1,12 +1,15 @@
 defmodule Vaux.Component.Builder do
   @moduledoc false
 
+  alias Vaux.Component.Compiler
+
   @components_key :__vaux_components__
   @attrs_key :__vaux_attrs__
   @slots_key :__vaux_slots__
   @var_key :__vaux_var__
   @template_key :__vaux_template__
   @const_key :__vaux_const___
+  @globals_key :__vaux_globals___
 
   def defcomponent(env) do
     attrs_schema = Module.get_attribute(env.module, @attrs_key, [])
@@ -17,6 +20,8 @@ defmodule Vaux.Component.Builder do
     Module.delete_attribute(env.module, @slots_key)
     template = Module.get_attribute(env.module, @template_key)
     Module.delete_attribute(env.module, @template_key)
+    globals = Module.get_attribute(env.module, @globals_key, false)
+    Module.delete_attribute(env.module, @globals_key)
 
     if is_nil(template) do
       raise Vaux.CompileError,
@@ -26,7 +31,7 @@ defmodule Vaux.Component.Builder do
     end
 
     {string, caller} = template
-    {quoted, assigns} = Vaux.Component.Compiler.compile(string, caller)
+    {quoted, assigns} = Compiler.compile(string, inject_globals: !!globals, env: caller)
     defaults = Vaux.Schema.get_defaults(attrs_schema) |> Macro.escape()
 
     jsv_schema =
@@ -51,9 +56,6 @@ defmodule Vaux.Component.Builder do
 
     case Vaux.Schema.check_assigns(assigns, struct_fields) do
       [] ->
-        :ok
-
-      [:__slot__] ->
         :ok
 
       [unused] ->
@@ -88,6 +90,7 @@ defmodule Vaux.Component.Builder do
       def __vaux__(:required), do: unquote(for name <- required, do: Atom.to_string(name))
       def __vaux__(:defaults), do: unquote(defaults)
       def __vaux__(:slots), do: unquote(slots)
+      def __vaux__(:globals), do: unquote(globals)
 
       def handle_state(%__MODULE__{} = state) do
         {:ok, state}
@@ -183,6 +186,50 @@ defmodule Vaux.Component.Builder do
     end
 
     Module.put_attribute(mod, @const_key, const)
+  end
+
+  def set_globals(caller, globals) do
+    mod = caller.module
+
+    if is_nil(Module.get_attribute(mod, @globals_key)) do
+      Module.register_attribute(mod, @globals_key, persist: false)
+    else
+      IO.warn("previous `globals/1` declaration will be overwritten",
+        file: caller.file,
+        line: caller.line,
+        module: caller.module,
+        function: {:globals, 1}
+      )
+    end
+
+    {globals, _} = Code.eval_quoted(globals, [], caller)
+
+    Module.put_attribute(mod, @globals_key, cast_globals!(globals, caller))
+  end
+
+  defp cast_globals!(globals, env) do
+    case globals do
+      b when is_boolean(b) ->
+        b
+
+      {:only, []} ->
+        false
+
+      {:except, []} ->
+        true
+
+      {kw, [name | _] = names} when kw in [:only, :except] ->
+        if is_binary(name) do
+          globals
+        else
+          description = "global attributes should be declared as a list of strings, got: #{inspect(names)}"
+          raise Vaux.CompileError, file: env.file, line: env.line, description: description
+        end
+
+      _ ->
+        description = "unexpected globals declaration, got: #{inspect(globals)}"
+        raise Vaux.CompileError, file: env.file, line: env.line, description: description
+    end
   end
 
   def handle_requires(comps) do

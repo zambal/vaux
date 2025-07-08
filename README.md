@@ -12,6 +12,7 @@ def deps do
 end
 ```
 
+
 ## Introduction
 
 Vaux (rhymes with yo) provides composable html templates for Elixir. It uses 
@@ -83,6 +84,7 @@ provides the `components/1` macro that both requires and aliases components:
   iex> Vaux.render!(Page.Page1)
   "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
 ```
+
 
 ## Slots
 
@@ -188,6 +190,7 @@ overview what slots are available.
   "<html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>Hello World</title></head><body><h1>Hello World</h1></body></html>"
 ```
 
+
 ## Directives
 
 Vaux doesn't support block expressions, but it has an extensive set of 
@@ -235,6 +238,7 @@ directives to use:
   "<body><div><span>oranje</span></div><div>1</div><div>2</div><div>3</div><div>Ok</div></body>"
 ```
 
+
 #### Applying directives to multiple elements
 
 If you want to apply a directive to a list of elements, you can use the 
@@ -258,6 +262,7 @@ use the `:keep` directive to keep te `template` element in the rendered output).
   iex> Vaux.render!(Component.Example3, %{"fruit" => "apple"})
   "<a></a><b></b>"
 ```
+
 
 #### Using `:bind` and `:let` directives
 
@@ -320,6 +325,31 @@ JSON schema validation options can be used:
 ```
 
 
+## Global Attributes
+
+Vaux supports passing global attributes to the first element of a component. 
+This can be used for example when you want to be able to set a class or event 
+handler on the component's root element.
+
+```elixir
+  defmodule GlobalsTest do
+    import Vaux.Component
+
+    attr :title, :string
+    globals only: ~w(id class onclick)
+
+    ~H"""
+    <h1 id="to-be-replaced-id" class="other">{@title}</h1>
+    """vaux
+  end
+
+  iex> Vaux.render(GlobalsTest, %{"title" => "Hello World", "id" => "new-id", "class" => "myclass", "onclick" => "alert('Hi')"})
+  {:ok, "<h1 onclick=\"alert(&#39;Hi&#39;)\" id=\"new-id\" class=\"other myclass\">Hello World</h1>"}
+```
+
+See [`globals/1`](Vaux.Component.html#globals/1) for more info.
+
+
 ## Vaux.Component behaviour and `handle_state/1` callback
 
 Every component implements the `Vaux.Component` behaviour. This behaviour 
@@ -371,6 +401,7 @@ different contexts.
   iex> Vaux.render!(Component.StateExample, %{"title" => "Hello <%= @name %>"})
   "<section><h1>Hello Jan Jansen</h1><p>Current hobbies: Cats, Drawing</p></section>"
 ```
+
 
 ## Root modules
 

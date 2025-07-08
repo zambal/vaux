@@ -2,7 +2,7 @@ defmodule Vaux.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/zambal/vaux"
-  @version "0.3.9"
+  @version "0.4.0"
 
   def project do
     [
@@ -13,7 +13,7 @@ defmodule Vaux.MixProject do
       deps: deps(),
       name: "Vaux",
       source_url: @source_url,
-      description: "Composable HTML for Elixir",
+      description: "Composable HTML templates for Elixir",
       docs: docs(),
       package: package()
     ]

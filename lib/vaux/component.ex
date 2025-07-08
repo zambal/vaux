@@ -286,6 +286,50 @@ defmodule Vaux.Component do
   end
 
   @doc """
+  Declare global attributes, including event handlers, that a component 
+  optionally accepts 
+
+  The `globals/1` macro can be used if you want to allow setting global 
+  attributes on the template's first element. Use `true` to allow any global 
+  attribute and `false` to disallow all global attributes (default). When `:only` 
+  is passed as option, a list of global attribute names can be passed that are 
+  allowed. Finally, the `:except` option can be used to allow any global 
+  attribute except for the passed list of global attribute names.
+
+  Passed global attributes overwrite already present attributes, except 
+  for the `class` attribute. In that case passed classes will be added to 
+  existing classes.
+
+      iex> defmodule GlobalsTest do
+      ...>   import Vaux.Component
+      ...> 
+      ...>   attr :title, :string
+      ...>   globals only: ~w(id class onclick)
+      ...> 
+      ...>   ~H\"""
+      ...>   <h1 id=\"to-be-replaced-id\" class=\"other\">{@title}</h1>
+      ...>   \"""vaux
+      ...> end
+      iex> Vaux.render(GlobalsTest, %{"title" => "Hello World", "id" => "new-id", "class" => "myclass", "onclick" => "alert('Hi')"})
+      {:ok, "<h1 onclick=\\"alert(&#39;Hi&#39;)\\" id=\\"new-id\\" class=\\"other myclass\\">Hello World</h1>"}
+
+  See https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes for a complete list of global attributes that can be defined.
+  """
+  defmacro globals(attr_names)
+
+  defmacro globals(b) when is_boolean(b),
+    do: Vaux.Component.Builder.set_globals(__CALLER__, b)
+
+  defmacro globals(only: globals),
+    do: Vaux.Component.Builder.set_globals(__CALLER__, {:only, globals})
+
+  defmacro globals(except: globals),
+    do: Vaux.Component.Builder.set_globals(__CALLER__, {:except, globals})
+
+  defmacro globals(globals),
+    do: Vaux.Component.Builder.set_globals(__CALLER__, {:only, globals})
+
+  @doc """
   Define a html template
 
   Vaux templates support `{...}` for HTML-aware interpolation inside tag 

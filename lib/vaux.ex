@@ -12,6 +12,9 @@ defmodule Vaux do
       iex> Vaux.render(HelloWorld, %{"title" => "Hello World"})
       {:ok, "<h1>Hello World</h1>"}
   """
+
+  alias Vaux.Component.Compiler
+
   @type attributes :: %{String.t() => any()}
   @type slot_content :: iodata() | keyword(iodata()) | %{atom() => iodata()} | nil
 
@@ -34,7 +37,8 @@ defmodule Vaux do
   @spec render(component :: module(), attrs :: attributes(), slots :: slot_content()) ::
           {:ok, iodata()} | {:error, Vaux.RuntimeError.t()}
   def render(component, attrs \\ %{}, slots \\ nil) do
-    {:ok, render!(component, attrs, normalize_slots(slots), "nofile", 0)}
+    {globals, attrs} = Compiler.extract_globals(component, attrs)
+    {:ok, render!(component, Enum.into(attrs, %{}), Enum.into(globals, %{}), normalize_slots(slots), "nofile", 0)}
   rescue
     error in [Vaux.RuntimeError] ->
       {:error, error}
@@ -45,13 +49,14 @@ defmodule Vaux do
   """
   @spec render!(component :: module(), attrs :: attributes(), slots :: slot_content()) :: iodata()
   def render!(component, attrs \\ %{}, slots \\ nil) do
-    render!(component, attrs, normalize_slots(slots), "nofile", 0)
+    {globals, attrs} = Compiler.extract_globals(component, attrs)
+    render!(component, Enum.into(attrs, %{}), Enum.into(globals, %{}), normalize_slots(slots), "nofile", 0)
   end
 
   @doc false
-  @spec render!(module(), attributes(), map(), Path.t(), non_neg_integer()) :: iodata()
-  def render!(component, attrs, slot_content, file, line) do
-    case validate_attrs(component, attrs, slot_content) do
+  @spec render!(module(), attributes(), attributes(), map(), Path.t(), non_neg_integer()) :: iodata()
+  def render!(component, attrs, globals, slot_content, file, line) do
+    case validate_attrs(component, attrs, globals, slot_content) do
       {:ok, state} ->
         case component.handle_state(state) do
           {:ok, state} when is_struct(state, component) ->
@@ -92,11 +97,12 @@ defmodule Vaux do
   defp normalize_slots(slots) when is_map(slots), do: slots
   defp normalize_slots(slot), do: %{default: slot}
 
-  defp validate_attrs(component, attrs, slot_content) do
+  defp validate_attrs(component, attrs, globals, slot_content) do
     if function_exported?(component, :__vaux__, 1) do
       case JSV.validate(attrs, component.__vaux__(:schema)) do
         {:ok, attrs} ->
           attrs = atomize(attrs)
+          attrs = Map.put(attrs, :__globals__, globals)
           {:ok, struct(component, Map.merge(attrs, slot_content))}
 
         {:error, e} ->
@@ -106,7 +112,7 @@ defmodule Vaux do
       case Code.ensure_loaded(component) do
         {:module, _} ->
           if function_exported?(component, :__vaux__, 1),
-            do: validate_attrs(component, attrs, slot_content),
+            do: validate_attrs(component, attrs, globals, slot_content),
             else: {:error, {:__vaux__, :noschema}}
 
         {:error, :nofile} ->
